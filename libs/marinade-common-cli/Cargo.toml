@@ -1,0 +1,13 @@
+[package]
+name = "marinade-common-cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.71"
+clap = "2.34.0"
+log = "0.4.18"
+solana-sdk = "1.14.18"
+solana-clap-utils = "1.14.18"
+solana-cli-config = "1.14.18"
+solana-remote-wallet = "1.14.18"
