@@ -14,10 +14,10 @@ use spl_token::state::{Account as Token, Mint};
 use std::ops::Deref;
 
 pub trait RpcClientHelpers {
-    fn get_account_retrying(&self, account_pubkey: &Pubkey)
-        -> Result<Option<Account>, ClientError>;
-    fn get_account_data_retrying(&self, account_pubkey: &Pubkey) -> anyhow::Result<Vec<u8>>;
-    fn get_system_balance_retrying(&self, account_pubkey: &Pubkey) -> anyhow::Result<u64>;
+    fn get_account(&self, account_pubkey: &Pubkey)
+                   -> Result<Option<Account>, ClientError>;
+    fn get_account_data(&self, account_pubkey: &Pubkey) -> anyhow::Result<Vec<u8>>;
+    fn get_system_balance(&self, account_pubkey: &Pubkey) -> anyhow::Result<u64>;
 
     fn check_mint_account(
         &self,
@@ -35,30 +35,19 @@ pub trait RpcClientHelpers {
 }
 
 impl RpcClientHelpers for RpcClient {
-    fn get_account_retrying(
+    fn get_account(
         &self,
         account_pubkey: &Pubkey,
     ) -> Result<Option<Account>, ClientError> {
-        Ok(loop {
-            match self.get_account_with_commitment(account_pubkey, self.commitment()) {
-                Ok(account) => break account,
-                Err(err) => warn!("RPC error {}. Retrying", err),
-            }
-        }
-        .value)
+        self.get_account_with_commitment(account_pubkey, self.commitment()).value
     }
 
-    fn get_account_data_retrying(&self, account_pubkey: &Pubkey) -> anyhow::Result<Vec<u8>> {
-        if let Some(account) = self.get_account_retrying(account_pubkey)? {
-            Ok(account.data)
-        } else {
-            error!("Can not find account {}", account_pubkey);
-            bail!("Can not find account {}", account_pubkey);
-        }
+    fn get_account_data(&self, account_pubkey: &Pubkey) -> anyhow::Result<Vec<u8>> {
+        self.get_account(account_pubkey).data
     }
 
-    fn get_system_balance_retrying(&self, account_pubkey: &Pubkey) -> anyhow::Result<u64> {
-        if let Some(account) = self.get_account_retrying(account_pubkey)? {
+    fn get_system_balance(&self, account_pubkey: &Pubkey) -> anyhow::Result<u64> {
+        if let Some(account) = self.get_account(account_pubkey)? {
             if account.owner != system_program::ID {
                 error!(
                     "Account {} must belongs to system. But owner is {}",
@@ -82,7 +71,7 @@ impl RpcClientHelpers for RpcClient {
         authority: &Pubkey,
         must_have_0_supply: bool,
     ) -> anyhow::Result<bool> {
-        if let Some(account) = self.get_account_retrying(account_pubkey)? {
+        if let Some(account) = self.get_account(account_pubkey)? {
             if account.owner != spl_token::ID {
                 error!(
                     "Wrong SPL mint account {} owner {}",
@@ -143,7 +132,7 @@ impl RpcClientHelpers for RpcClient {
         mint: &Pubkey,
         authority: Option<&Pubkey>,
     ) -> anyhow::Result<bool> {
-        if let Some(account) = self.get_account_retrying(account_pubkey)? {
+        if let Some(account) = self.get_account(account_pubkey)? {
             if account.owner != spl_token::ID {
                 error!(
                     "Wrong SPL mint account {} owner {}",

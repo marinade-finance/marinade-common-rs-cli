@@ -13,7 +13,7 @@ pub fn validator_list(
     state: &State,
 ) -> anyhow::Result<(Vec<ValidatorRecord>, u32)> {
     let validator_list_account_data =
-        rpc_client.get_account_data_retrying(state.validator_system.validator_list_address())?;
+        rpc_client.get_account_data(state.validator_system.validator_list_address())?;
     let validator_record_size = state.validator_system.validator_record_size() as usize;
 
     Ok((
@@ -36,7 +36,7 @@ pub fn stake_list(
     state: &State,
 ) -> anyhow::Result<(Vec<StakeRecord>, u32)> {
     let stake_list_account_data =
-        rpc_client.get_account_data_retrying(state.stake_system.stake_list_address())?;
+        rpc_client.get_account_data(state.stake_system.stake_list_address())?;
     let stake_record_size = state.stake_system.stake_record_size() as usize;
     Ok((
         (0..state.stake_system.stake_count())
@@ -117,7 +117,7 @@ pub fn stakes_info_reversed(
 
 pub fn get_clock(rpc_client: &RpcClient) -> anyhow::Result<Clock> {
     Ok(bincode::deserialize(
-        &rpc_client.get_account_data_retrying(&solana_sdk::sysvar::clock::ID)?,
+        &rpc_client.get_account_data(&solana_sdk::sysvar::clock::ID)?,
     )?)
 }
 
