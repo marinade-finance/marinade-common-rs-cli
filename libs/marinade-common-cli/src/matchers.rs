@@ -7,8 +7,8 @@ use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
 use std::{str::FromStr, sync::Arc};
 
-// Try to get signer from the keypair path argument, or a default signer
-pub fn signer_or_default(
+// Getting signer from the matched name as the keypair path argument, or returns the default signer
+pub fn signer_from_path_or_default(
     matches: &ArgMatches<'_>,
     name: &str,
     default_signer: &Arc<dyn Signer>,
@@ -24,8 +24,8 @@ pub fn signer_or_default(
     }
 }
 
-// Try to get pubkey from the string or load it from the signer data
-pub fn pubkey_of(
+/// Getting pubkey from the matched name or load it from the signer data
+pub fn pubkey_or_of_signer(
     matches: &ArgMatches<'_>,
     name: &str,
     wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
@@ -50,8 +50,24 @@ pub fn pubkey_of(
     }
 }
 
-// Try to get pubkey from the string or load it from the signer data
-pub(crate) fn pubkey_or_from_path(
+/// Looking for a set of pubkeys in the matches, and return them as a vector
+pub fn process_multiple_pubkeys(
+    arg_matches: &ArgMatches,
+    arg_name: &str,
+    mut wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
+) -> anyhow::Result<Vec<Pubkey>> {
+    let mut value_pubkeys: Vec<Pubkey> = vec![];
+    if let Some(values) = arg_matches.values_of(arg_name) {
+        for (i, value) in values.enumerate() {
+            let name = format!("{}-{}", arg_name, i.saturating_add(1));
+            let value_pubkey = pubkey_or_from_path(arg_matches, &name, value, &mut wallet_manager)?;
+            value_pubkeys.push(value_pubkey);
+        }
+    }
+    Ok(value_pubkeys)
+}
+
+fn pubkey_or_from_path(
     matches: &ArgMatches<'_>,
     name: &str,
     value_or_path: &str,
@@ -71,20 +87,4 @@ pub(crate) fn pubkey_or_from_path(
             })?;
         Ok(signer.pubkey())
     }
-}
-
-pub fn process_multiple_pubkeys(
-    arg_matches: &ArgMatches,
-    arg_name: &str,
-    mut wallet_manager: Option<Arc<RemoteWalletManager>>,
-) -> anyhow::Result<Vec<Pubkey>> {
-    let mut value_pubkeys: Vec<Pubkey> = vec![];
-    if let Some(values) = arg_matches.values_of(arg_name) {
-        for (i, value) in values.enumerate() {
-            let name = format!("{}-{}", arg_name, i.saturating_add(1));
-            let value_pubkey = pubkey_or_from_path(arg_matches, &name, value, &mut wallet_manager)?;
-            value_pubkeys.push(value_pubkey);
-        }
-    }
-    Ok(value_pubkeys)
 }
