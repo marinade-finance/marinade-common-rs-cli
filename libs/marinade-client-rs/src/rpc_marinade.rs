@@ -1,3 +1,4 @@
+use crate::state::{stake_list, stakes_info, stakes_info_reversed, validator_list, StakeInfo};
 use anchor_client::{Client, Program};
 use marinade_finance::state::stake_system::StakeRecord;
 use marinade_finance::state::validator_system::ValidatorRecord;
@@ -6,7 +7,6 @@ use solana_client::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
 use std::ops::Deref;
-use crate::marinade::state::{StakeInfo, stakes_info_reversed, stakes_info, validator_list, stake_list};
 
 pub struct RpcMarinade<C> {
     pub client: RpcClient,

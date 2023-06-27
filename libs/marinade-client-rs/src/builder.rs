@@ -1,10 +1,10 @@
-use crate::marinade::instructions::{
+use crate::instructions::{
     add_liquidity, add_validator, change_authority, claim, config_lp, config_marinade,
     config_validator_system, deactivate_stake, deposit, deposit_stake_account, emergency_unstake,
     initialize, liquid_unstake, merge_stakes, order_unstake, partial_unstake, remove_liquidity,
     remove_validator, set_validator_score, stake_reserve, update_active, update_deactivated,
 };
-use crate::marinade::rpc_marinade::RpcMarinade;
+use crate::rpc_marinade::RpcMarinade;
 use anchor_client::RequestBuilder;
 use marinade_finance::instructions::{ChangeAuthorityData, ConfigMarinadeParams};
 use marinade_finance::state::Fee;
@@ -13,8 +13,6 @@ use solana_sdk::signer::Signer;
 use std::ops::Deref;
 use std::sync::Arc;
 
-/// Utilizing the TransactionBuilder from transaction_builder.rs
-/// to work with marinade transactions
 pub trait TransactionBuilderMarinade<'a, C> {
     fn add_validator(
         &'a self,
