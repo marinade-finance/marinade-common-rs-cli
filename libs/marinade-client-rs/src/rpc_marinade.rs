@@ -18,7 +18,7 @@ pub struct RpcMarinade<C> {
 
 impl<C: Deref<Target = impl Signer> + Clone> RpcMarinade<C> {
     pub fn new(
-        anchor_client: Client<C>,
+        anchor_client: &Client<C>,
         program_pubkey: Pubkey,
         instance_pubkey: Pubkey,
     ) -> anyhow::Result<Self> {
