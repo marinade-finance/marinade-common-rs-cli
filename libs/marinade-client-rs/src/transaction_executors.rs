@@ -1,5 +1,5 @@
 use anchor_client::RequestBuilder;
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use log::{debug, error, info, warn};
 use solana_client::client_error::ClientErrorKind;
 use solana_client::rpc_client::RpcClient;
@@ -25,14 +25,16 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionExecutor for Request
     }
 }
 
-pub fn log_execution(execution_result: Result<Signature, anchor_client::ClientError>) {
+pub fn log_execution(
+    execution_result: Result<Signature, anchor_client::ClientError>,
+) -> anyhow::Result<()> {
     match execution_result {
         Ok(signature) => debug!("Transaction {}", signature),
         Err(err) => {
             error!("Transaction error: {}", err);
             match &err {
                 anchor_client::ClientError::SolanaClientError(ce) => {
-                    error!("Transaction error: {}", err);
+                    error!("Solana client error: {}", ce);
                     if let ClientErrorKind::RpcError(RpcError::RpcResponseError {
                         data:
                             RpcResponseErrorData::SendTransactionPreflightFailure(
@@ -50,15 +52,14 @@ pub fn log_execution(execution_result: Result<Signature, anchor_client::ClientEr
                         for log in logs {
                             error!("Log: {}", log);
                         }
-                        error!("Transaction ERR {:?}", err);
                     }
                 }
-                _ => {
-                    error!("Transaction ERR {:?}", err);
-                }
+                _ => {}
             }
+            bail!("Transaction error: {}", err);
         }
     }
+    Ok(())
 }
 
 pub trait TransactionSimulator {
@@ -74,7 +75,9 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for Reques
     }
 }
 
-pub fn log_simulation(simulation_result: RpcResult<RpcSimulateTransactionResult>) {
+pub fn log_simulation(
+    simulation_result: RpcResult<RpcSimulateTransactionResult>,
+) -> anyhow::Result<()> {
     match simulation_result {
         Ok(result) => {
             if let Some(logs) = &result.value.logs {
@@ -84,6 +87,7 @@ pub fn log_simulation(simulation_result: RpcResult<RpcSimulateTransactionResult>
             }
             if result.value.err.is_some() {
                 error!("Transaction ERR {:?}", result);
+                bail!("Transaction error: {}", result.value.err.unwrap());
             } else {
                 info!("Transaction simulation Ok");
             }
@@ -109,8 +113,10 @@ pub fn log_simulation(simulation_result: RpcResult<RpcSimulateTransactionResult>
                 }
                 error!("Transaction ERR {:?}", err);
             }
+            bail!("Transaction error: {}", err);
         }
     }
+    Ok(())
 }
 
 pub fn execute<'a, I, C>(
@@ -126,7 +132,7 @@ where
         let commitment_level = rpc_client.commitment().commitment;
         anchor_builders
             .into_iter()
-            .for_each(|builder| log_execution(builder.execute(commitment_level)));
+            .try_for_each(|builder| log_execution(builder.execute(commitment_level)))?;
     } else {
         let mut builders_iterator = anchor_builders.into_iter();
         log_simulation(
@@ -134,7 +140,7 @@ where
                 .next()
                 .ok_or(anyhow!("No transactions to simulate"))?
                 .simulate(rpc_client),
-        );
+        )?;
         if builders_iterator.next().is_some() {
             warn!(
                 "Simulation mode: only the first transaction was simulated. The rest are ignored."
