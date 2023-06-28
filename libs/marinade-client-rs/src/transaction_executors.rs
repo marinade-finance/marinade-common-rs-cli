@@ -149,3 +149,17 @@ where
     }
     Ok(())
 }
+
+pub fn execute_single<C: Deref<Target = dynsigner::DynSigner> + Clone>(
+    anchor_builder: RequestBuilder<C>,
+    rpc_client: &RpcClient,
+    simulate: bool,
+) -> anyhow::Result<()> {
+    if !simulate {
+        let commitment_level = rpc_client.commitment().commitment;
+        log_execution(anchor_builder.execute(commitment_level))?;
+    } else {
+        log_simulation(anchor_builder.simulate(rpc_client))?;
+    }
+    Ok(())
+}
