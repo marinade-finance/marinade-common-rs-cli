@@ -5,6 +5,7 @@ use solana_clap_utils::keypair::signer_from_path;
 use solana_remote_wallet::remote_wallet::RemoteWalletManager;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
+use std::num::ParseIntError;
 use std::{str::FromStr, sync::Arc};
 
 // Getting signer from the matched name as the keypair path argument, or returns the default signer
@@ -87,4 +88,11 @@ fn pubkey_or_from_path(
             })?;
         Ok(signer.pubkey())
     }
+}
+
+pub fn match_u32(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<u32> {
+    let value = matches
+        .value_of(name)
+        .ok_or_else(|| anyhow::Error::msg(format!("argument '{}' missing", name)))?;
+    u32::from_str(value).map_err(|err: ParseIntError| anyhow::Error::msg(err))
 }
