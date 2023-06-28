@@ -5,7 +5,7 @@ use solana_clap_utils::keypair::signer_from_path;
 use solana_remote_wallet::remote_wallet::RemoteWalletManager;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
-use std::num::ParseIntError;
+
 use std::{str::FromStr, sync::Arc};
 
 // Getting signer from the matched name as the keypair path argument, or returns the default signer
@@ -55,13 +55,13 @@ pub fn pubkey_or_of_signer(
 pub fn process_multiple_pubkeys(
     arg_matches: &ArgMatches,
     arg_name: &str,
-    mut wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
+    wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
 ) -> anyhow::Result<Vec<Pubkey>> {
     let mut value_pubkeys: Vec<Pubkey> = vec![];
     if let Some(values) = arg_matches.values_of(arg_name) {
         for (i, value) in values.enumerate() {
             let name = format!("{}-{}", arg_name, i.saturating_add(1));
-            let value_pubkey = pubkey_or_from_path(arg_matches, &name, value, &mut wallet_manager)?;
+            let value_pubkey = pubkey_or_from_path(arg_matches, &name, value, wallet_manager)?;
             value_pubkeys.push(value_pubkey);
         }
     }
@@ -94,5 +94,5 @@ pub fn match_u32(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<u32> {
     let value = matches
         .value_of(name)
         .ok_or_else(|| anyhow::Error::msg(format!("argument '{}' missing", name)))?;
-    u32::from_str(value).map_err(|err: ParseIntError| anyhow::Error::msg(err))
+    u32::from_str(value).map_err(anyhow::Error::msg)
 }

@@ -32,29 +32,26 @@ pub fn log_execution(
         Ok(signature) => debug!("Transaction {}", signature),
         Err(err) => {
             error!("Transaction error: {}", err);
-            match &err {
-                anchor_client::ClientError::SolanaClientError(ce) => {
-                    error!("Solana client error: {}", ce);
-                    if let ClientErrorKind::RpcError(RpcError::RpcResponseError {
-                        data:
-                            RpcResponseErrorData::SendTransactionPreflightFailure(
-                                RpcSimulateTransactionResult {
-                                    err: _,
-                                    logs: Some(logs),
-                                    accounts: _,
-                                    return_data: _,
-                                    units_consumed: _,
-                                },
-                            ),
-                        ..
-                    }) = ce.kind()
-                    {
-                        for log in logs {
-                            error!("Log: {}", log);
-                        }
+            if let anchor_client::ClientError::SolanaClientError(ce) = &err {
+                error!("Solana client error: {}", ce);
+                if let ClientErrorKind::RpcError(RpcError::RpcResponseError {
+                    data:
+                        RpcResponseErrorData::SendTransactionPreflightFailure(
+                            RpcSimulateTransactionResult {
+                                err: _,
+                                logs: Some(logs),
+                                accounts: _,
+                                return_data: _,
+                                units_consumed: _,
+                            },
+                        ),
+                    ..
+                }) = ce.kind()
+                {
+                    for log in logs {
+                        error!("Log: {}", log);
                     }
                 }
-                _ => {}
             }
             bail!("Transaction error: {}", err);
         }
@@ -138,7 +135,7 @@ where
         log_simulation(
             builders_iterator
                 .next()
-                .ok_or(anyhow!("No transactions to simulate"))?
+                .ok_or_else(|| anyhow!("No transactions to simulate"))?
                 .simulate(rpc_client),
         )?;
         if builders_iterator.next().is_some() {

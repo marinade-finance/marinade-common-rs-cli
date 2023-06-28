@@ -1,3 +1,4 @@
+#![allow(clippy::too_many_arguments)]
 use crate::instructions::{
     add_liquidity, add_validator, change_authority, claim, config_lp, config_marinade,
     config_validator_system, deactivate_stake, deposit, deposit_stake_account, emergency_unstake,
