@@ -1,5 +1,8 @@
+use crate::transaction_instruction::{TransactionAccount, TransactionInstruction};
 use anchor_client::RequestBuilder;
-use anyhow::{anyhow, bail};
+use anchor_lang::idl::IdlAccount;
+use anyhow::bail;
+use borsh::BorshSerialize;
 use log::{debug, error, info, warn};
 use solana_client::client_error::ClientErrorKind;
 use solana_client::rpc_client::RpcClient;
@@ -9,6 +12,7 @@ use solana_client::rpc_response::{RpcResult, RpcSimulateTransactionResult};
 use solana_sdk::commitment_config::CommitmentLevel;
 use solana_sdk::signature::Signature;
 use solana_sdk::signer::Signer;
+use spl_token::solana_program::instruction::Instruction;
 use std::ops::Deref;
 
 pub trait TransactionExecutor {
@@ -116,34 +120,69 @@ pub fn log_simulation(
     Ok(())
 }
 
+pub fn print_base64(instructions: &Vec<Instruction>) -> anyhow::Result<()> {
+    for instruction in instructions {
+        let transaction_instruction = TransactionInstruction {
+            program_id: instruction.program_id,
+            accounts: instruction
+                .accounts
+                .iter()
+                .map(TransactionAccount::from)
+                .collect(),
+            data: instruction.data.clone(),
+        };
+        println!(
+            "base64 instruction to idl account {} of program {}:",
+            IdlAccount::address(&instruction.program_id),
+            instruction.program_id
+        );
+        println!(
+            " {}",
+            anchor_lang::__private::base64::encode(transaction_instruction.try_to_vec()?)
+        );
+    }
+    Ok(())
+}
+
 pub fn execute<'a, I, C>(
     anchor_builders: I,
     rpc_client: &RpcClient,
     simulate: bool,
+    print_only: bool,
 ) -> anyhow::Result<()>
 where
     I: IntoIterator<Item = RequestBuilder<'a, C>>,
     C: Deref<Target = dynsigner::DynSigner> + Clone,
 {
-    if !simulate {
-        let commitment_level = rpc_client.commitment().commitment;
-        anchor_builders
-            .into_iter()
-            .try_for_each(|builder| log_execution(builder.execute(commitment_level)))?;
-    } else {
-        let mut builders_iterator = anchor_builders.into_iter();
-        log_simulation(
-            builders_iterator
-                .next()
-                .ok_or_else(|| anyhow!("No transactions to simulate"))?
-                .simulate(rpc_client),
-        )?;
-        if builders_iterator.next().is_some() {
+    warn_text_simulate_print_only(simulate, print_only);
+
+    if simulate {
+        let mut count = 0u32;
+        for builder in anchor_builders {
+            if print_only {
+                print_base64(&builder.instructions()?)?;
+                continue;
+            }
+            log_simulation(builder.simulate(rpc_client))?;
+            count += 1;
+        }
+        if count > 1 {
             warn!(
                 "Simulation mode: only the first transaction was simulated. The rest are ignored."
             );
         }
+    } else {
+        // execute or print_only
+        let commitment_level = rpc_client.commitment().commitment;
+        anchor_builders.into_iter().try_for_each(|builder| {
+            if print_only {
+                print_base64(&builder.instructions()?)
+            } else {
+                log_execution(builder.execute(commitment_level))
+            }
+        })?;
     }
+
     Ok(())
 }
 
@@ -151,12 +190,30 @@ pub fn execute_single<C: Deref<Target = dynsigner::DynSigner> + Clone>(
     anchor_builder: RequestBuilder<C>,
     rpc_client: &RpcClient,
     simulate: bool,
+    print_only: bool,
 ) -> anyhow::Result<()> {
-    if !simulate {
+    warn_text_simulate_print_only(simulate, print_only);
+
+    if print_only {
+        print_base64(&anchor_builder.instructions()?)?;
+    }
+
+    if simulate {
+        log_simulation(anchor_builder.simulate(rpc_client))?;
+    } else if !print_only {
+        // !simulate && !print_only
         let commitment_level = rpc_client.commitment().commitment;
         log_execution(anchor_builder.execute(commitment_level))?;
-    } else {
-        log_simulation(anchor_builder.simulate(rpc_client))?;
     }
+
     Ok(())
+}
+
+fn warn_text_simulate_print_only(simulate: bool, print_only: bool) {
+    if simulate {
+        warn!("Simulation mode: transactions will not be executed, only simulated.");
+    }
+    if print_only {
+        warn!("Print only mode: transactions will only be printed in base64 format.");
+    }
 }

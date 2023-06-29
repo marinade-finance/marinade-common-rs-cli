@@ -110,7 +110,6 @@ pub fn program_arg<'a, 'b>() -> Arg<'a, 'b> {
 pub const INSTANCE_ARG: ArgConstant<'static> = ArgConstant {
     name: "instance",
     long: "instance",
-    // TODO: should be possible to load the config file instead of a pubkey?
     help: "Marinade instance pubkey.",
 };
 pub fn instance_arg<'a, 'b>() -> Arg<'a, 'b> {
@@ -122,4 +121,17 @@ pub fn instance_arg<'a, 'b>() -> Arg<'a, 'b> {
         .env("MARINADE_INSTANCE")
         .default_value("8szGkuLTAux9XMgZ2vtY39jVSowEcpBfFfD8hXSEqdGC")
         .help(INSTANCE_ARG.help)
+}
+
+pub const PRINT_ONLY_ARG: ArgConstant<'static> = ArgConstant {
+    name: "print_only",
+    long: "print-only",
+    help: "The transaction is not executed but outputed in base64 format",
+};
+pub fn print_only_arg<'a, 'b>() -> Arg<'a, 'b> {
+    Arg::with_name(PRINT_ONLY_ARG.name)
+        .takes_value(false)
+        .short("p")
+        .help(PRINT_ONLY_ARG.long)
+        .help(PRINT_ONLY_ARG.help)
 }

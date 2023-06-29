@@ -17,3 +17,4 @@ marinade-finance = { git = "https://github.com/marinade-finance/liquid-staking-p
 dynsigner = { path = "../dynsigner" }
 anchor-lang = "0.27.0"
 anchor-client = "0.27.0"
+borsh = "0.9.3"
