@@ -91,8 +91,61 @@ fn pubkey_or_from_path(
 }
 
 pub fn match_u32(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<u32> {
-    let value = matches
-        .value_of(name)
-        .ok_or_else(|| anyhow::Error::msg(format!("argument '{}' missing", name)))?;
-    u32::from_str(value).map_err(anyhow::Error::msg)
+    match_u32_option(matches, name)?
+        .ok_or_else(|| anyhow::Error::msg(format!("argument '{}' missing", name)))
+}
+
+pub fn match_u32_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<Option<u32>> {
+    if let Some(value) = matches.value_of(name) {
+        let value = u32::from_str(value).map_err(|e| {
+            anyhow!(
+                "Failed to convert argument {} of value {} to u32: {:?}",
+                name,
+                value,
+                e
+            )
+        })?;
+        return Ok(Some(value));
+    }
+    Ok(None)
+}
+
+pub fn match_u64(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<u64> {
+    match_u64_option(matches, name)?
+        .ok_or_else(|| anyhow::Error::msg(format!("argument '{}' missing", name)))
+}
+
+pub fn match_u64_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<Option<u64>> {
+    if let Some(value) = matches.value_of(name) {
+        let value = u64::from_str(value).map_err(|e| {
+            anyhow!(
+                "Failed to convert argument {} of value {} to u64: {:?}",
+                name,
+                value,
+                e
+            )
+        })?;
+        return Ok(Some(value));
+    }
+    Ok(None)
+}
+
+pub fn match_f64(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<f64> {
+    match_f64_option(matches, name)?
+        .ok_or_else(|| anyhow::Error::msg(format!("argument '{}' missing", name)))
+}
+
+pub fn match_f64_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<Option<f64>> {
+    if let Some(value) = matches.value_of(name) {
+        let value = f64::from_str(value).map_err(|e| {
+            anyhow!(
+                "Failed to convert argument {} of value {} to f64: {:?}",
+                name,
+                value,
+                e
+            )
+        })?;
+        return Ok(Some(value));
+    }
+    Ok(None)
 }
