@@ -5,6 +5,7 @@ pub mod instructions;
 pub mod rpc_marinade;
 pub mod state;
 pub mod transaction_executors;
+pub mod transaction_instruction;
 pub mod verifiers;
 
 pub use solana_sdk;
