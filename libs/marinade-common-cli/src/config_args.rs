@@ -126,12 +126,11 @@ pub fn instance_arg<'a, 'b>() -> Arg<'a, 'b> {
 pub const PRINT_ONLY_ARG: ArgConstant<'static> = ArgConstant {
     name: "print_only",
     long: "print-only",
-    help: "The transaction is not executed but outputed in base64 format",
+    help: "Transactions are not executed against the cluster, only simulation is executed.",
 };
 pub fn print_only_arg<'a, 'b>() -> Arg<'a, 'b> {
     Arg::with_name(PRINT_ONLY_ARG.name)
+        .long(PRINT_ONLY_ARG.long)
         .takes_value(false)
-        .short("p")
-        .help(PRINT_ONLY_ARG.long)
         .help(PRINT_ONLY_ARG.help)
 }

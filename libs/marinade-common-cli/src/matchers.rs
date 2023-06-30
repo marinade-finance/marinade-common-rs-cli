@@ -25,13 +25,26 @@ pub fn signer_from_path_or_default(
     }
 }
 
-/// Getting pubkey from the matched name or load it from the signer data
+/// Getting pubkey from the matched name or load it from the signer data, when not provided, return an error
 pub fn pubkey_or_of_signer(
     matches: &ArgMatches<'_>,
     name: &str,
     wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
 ) -> anyhow::Result<Pubkey> {
-    if let Some(matched_value) = matches.value_of(name) {
+    pubkey_or_of_signer_optional(matches, name, wallet_manager)
+        .map(|pubkey| {
+            pubkey.ok_or_else(|| anyhow!("Value for argument '{}' was not provided", name))
+        })
+        .unwrap_or_else(Err)
+}
+
+/// Getting pubkey from the matched name or load it from the signer data, when not provided, option None is returned
+pub fn pubkey_or_of_signer_optional(
+    matches: &ArgMatches<'_>,
+    name: &str,
+    wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
+) -> anyhow::Result<Option<Pubkey>> {
+    matches.value_of(name).map_or(Ok(None), |matched_value| {
         let pubkey = if let Ok(pubkey) = Pubkey::from_str(matched_value) {
             pubkey
         } else {
@@ -45,10 +58,8 @@ pub fn pubkey_or_of_signer(
                     )
                 })?
         };
-        Ok(pubkey)
-    } else {
-        Err(anyhow!("Value for argument '{}' was not provided", name))
-    }
+        Ok(Some(pubkey))
+    })
 }
 
 /// Looking for a set of pubkeys in the matches, and return them as a vector
