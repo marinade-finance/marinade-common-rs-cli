@@ -1,16 +1,15 @@
 use crate::transaction_instruction::{TransactionAccount, TransactionInstruction};
 use anchor_client::RequestBuilder;
-use anchor_lang::idl::IdlAccount;
 use anyhow::bail;
 use borsh::BorshSerialize;
 use log::{debug, error, info, warn};
 use solana_client::client_error::ClientErrorKind;
 use solana_client::rpc_client::RpcClient;
-use solana_client::rpc_config::RpcSendTransactionConfig;
+use solana_client::rpc_config::{RpcSendTransactionConfig};
 use solana_client::rpc_request::{RpcError, RpcResponseErrorData};
 use solana_client::rpc_response::{RpcResult, RpcSimulateTransactionResult};
 use solana_sdk::commitment_config::CommitmentLevel;
-use solana_sdk::signature::Signature;
+use solana_sdk::signature::{Keypair, Signature};
 use solana_sdk::signer::Signer;
 use spl_token::solana_program::instruction::Instruction;
 use std::ops::Deref;
@@ -30,7 +29,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionExecutor for Request
 }
 
 pub fn log_execution(
-    execution_result: Result<Signature, anchor_client::ClientError>,
+    execution_result: &Result<Signature, anchor_client::ClientError>,
 ) -> anyhow::Result<()> {
     match execution_result {
         Ok(signature) => debug!("Transaction {}", signature),
@@ -64,20 +63,22 @@ pub fn log_execution(
 }
 
 pub trait TransactionSimulator {
-    fn simulate(self, rpc_client: &RpcClient) -> RpcResult<RpcSimulateTransactionResult>;
+    fn simulate(&self, rpc_client: &RpcClient) -> RpcResult<RpcSimulateTransactionResult>;
 }
 
 impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for RequestBuilder<'a, C> {
-    fn simulate(self, rpc_client: &RpcClient) -> RpcResult<RpcSimulateTransactionResult> {
-        let tx = &self
+    fn simulate(&self, rpc_client: &RpcClient) -> RpcResult<RpcSimulateTransactionResult> {
+        let mut tx = self
             .transaction()
             .map_err(|err| RpcError::RpcRequestError(format!("Transaction error: {}", err)))?;
-        rpc_client.simulate_transaction(tx)
+        let recent_blockhash = rpc_client.get_latest_blockhash()?;
+        tx.partial_sign::<Vec<&Keypair>>(&vec![], recent_blockhash);
+        rpc_client.simulate_transaction(&tx)
     }
 }
 
 pub fn log_simulation(
-    simulation_result: RpcResult<RpcSimulateTransactionResult>,
+    simulation_result: &RpcResult<RpcSimulateTransactionResult>,
 ) -> anyhow::Result<()> {
     match simulation_result {
         Ok(result) => {
@@ -88,7 +89,7 @@ pub fn log_simulation(
             }
             if result.value.err.is_some() {
                 error!("Transaction ERR {:?}", result);
-                bail!("Transaction error: {}", result.value.err.unwrap());
+                bail!("Transaction error: {}", result.value.err.as_ref().unwrap());
             } else {
                 info!("Transaction simulation Ok");
             }
@@ -131,10 +132,7 @@ pub fn print_base64(instructions: &Vec<Instruction>) -> anyhow::Result<()> {
                 .collect(),
             data: instruction.data.clone(),
         };
-        println!(
-            "base64 instruction of program {}:",
-            instruction.program_id
-        );
+        println!("base64 instruction of program {}:", instruction.program_id);
         println!(
             " {}",
             anchor_lang::__private::base64::encode(transaction_instruction.try_to_vec()?)
@@ -162,7 +160,7 @@ where
                 print_base64(&builder.instructions()?)?;
                 continue;
             }
-            log_simulation(builder.simulate(rpc_client))?;
+            log_simulation(&builder.simulate(rpc_client))?;
             count += 1;
         }
         if count > 1 {
@@ -177,7 +175,7 @@ where
             if print_only {
                 print_base64(&builder.instructions()?)
             } else {
-                log_execution(builder.execute(commitment_level))
+                log_execution(&builder.execute(commitment_level))
             }
         })?;
     }
@@ -198,11 +196,11 @@ pub fn execute_single<C: Deref<Target = dynsigner::DynSigner> + Clone>(
     }
 
     if simulate {
-        log_simulation(anchor_builder.simulate(rpc_client))?;
+        log_simulation(&anchor_builder.simulate(rpc_client))?;
     } else if !print_only {
         // !simulate && !print_only
         let commitment_level = rpc_client.commitment().commitment;
-        log_execution(anchor_builder.execute(commitment_level))?;
+        log_execution(&anchor_builder.execute(commitment_level))?;
     }
 
     Ok(())
