@@ -132,8 +132,7 @@ pub fn print_base64(instructions: &Vec<Instruction>) -> anyhow::Result<()> {
             data: instruction.data.clone(),
         };
         println!(
-            "base64 instruction to idl account {} of program {}:",
-            IdlAccount::address(&instruction.program_id),
+            "base64 instruction of program {}:",
             instruction.program_id
         );
         println!(
