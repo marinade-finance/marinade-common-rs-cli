@@ -15,13 +15,21 @@ use spl_token::solana_program::instruction::Instruction;
 use std::ops::Deref;
 
 pub trait TransactionExecutor {
-    fn execute(self, commitment: CommitmentLevel) -> Result<Signature, anchor_client::ClientError>;
+    fn execute(
+        self,
+        commitment: CommitmentLevel,
+        skip_preflight: bool,
+    ) -> Result<Signature, anchor_client::ClientError>;
 }
 
 impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionExecutor for RequestBuilder<'a, C> {
-    fn execute(self, commitment: CommitmentLevel) -> Result<Signature, anchor_client::ClientError> {
+    fn execute(
+        self,
+        commitment: CommitmentLevel,
+        skip_preflight: bool,
+    ) -> Result<Signature, anchor_client::ClientError> {
         self.send_with_spinner_and_config(RpcSendTransactionConfig {
-            skip_preflight: false,
+            skip_preflight,
             preflight_commitment: Some(commitment),
             ..RpcSendTransactionConfig::default()
         })
@@ -143,6 +151,7 @@ pub fn print_base64(instructions: &Vec<Instruction>) -> anyhow::Result<()> {
 pub fn execute<'a, I, C>(
     anchor_builders: I,
     rpc_client: &RpcClient,
+    skip_preflight: bool,
     simulate: bool,
     print_only: bool,
 ) -> anyhow::Result<()>
@@ -174,7 +183,7 @@ where
             if print_only {
                 print_base64(&builder.instructions()?)
             } else {
-                log_execution(&builder.execute(commitment_level))
+                log_execution(&builder.execute(commitment_level, skip_preflight))
             }
         })?;
     }
@@ -185,6 +194,7 @@ where
 pub fn execute_single<C: Deref<Target = dynsigner::DynSigner> + Clone>(
     anchor_builder: RequestBuilder<C>,
     rpc_client: &RpcClient,
+    skip_preflight: bool,
     simulate: bool,
     print_only: bool,
 ) -> anyhow::Result<()> {
@@ -199,7 +209,7 @@ pub fn execute_single<C: Deref<Target = dynsigner::DynSigner> + Clone>(
     } else if !print_only {
         // !simulate && !print_only
         let commitment_level = rpc_client.commitment().commitment;
-        log_execution(&anchor_builder.execute(commitment_level))?;
+        log_execution(&anchor_builder.execute(commitment_level, skip_preflight))?;
     }
 
     Ok(())
