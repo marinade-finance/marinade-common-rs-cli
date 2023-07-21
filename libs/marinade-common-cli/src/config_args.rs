@@ -42,6 +42,19 @@ pub fn simulate_arg<'a, 'b>() -> Arg<'a, 'b> {
         .help(SIMULATE_ARG.help)
 }
 
+pub const SKIP_PREFLIGHT_ARG: ArgConstant<'static> = ArgConstant {
+    name: "skip_preflight",
+    long: "skip-preflight",
+    help:
+        "Skip transactions simulation at RPC node before sending to cluster (by default simulated).",
+};
+pub fn skip_preflight_arg<'a, 'b>() -> Arg<'a, 'b> {
+    Arg::with_name(SKIP_PREFLIGHT_ARG.name)
+        .long(SKIP_PREFLIGHT_ARG.long)
+        .takes_value(false)
+        .help(SKIP_PREFLIGHT_ARG.help)
+}
+
 pub const RPC_URL_ARG: ArgConstant<'static> = ArgConstant {
     name: "rpc_url",
     long: "url",

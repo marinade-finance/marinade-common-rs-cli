@@ -28,9 +28,14 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionExecutor for Request
         commitment: CommitmentLevel,
         skip_preflight: bool,
     ) -> Result<Signature, anchor_client::ClientError> {
+        let preflight_commitment = if skip_preflight {
+            None
+        } else {
+            Some(commitment)
+        };
         self.send_with_spinner_and_config(RpcSendTransactionConfig {
             skip_preflight,
-            preflight_commitment: Some(commitment),
+            preflight_commitment,
             ..RpcSendTransactionConfig::default()
         })
     }
