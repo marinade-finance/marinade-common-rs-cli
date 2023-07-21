@@ -5,7 +5,7 @@ use borsh::BorshSerialize;
 use log::{debug, error, info, warn};
 use solana_client::client_error::ClientErrorKind;
 use solana_client::rpc_client::RpcClient;
-use solana_client::rpc_config::{RpcSendTransactionConfig};
+use solana_client::rpc_config::RpcSendTransactionConfig;
 use solana_client::rpc_request::{RpcError, RpcResponseErrorData};
 use solana_client::rpc_response::{RpcResult, RpcSimulateTransactionResult};
 use solana_sdk::commitment_config::CommitmentLevel;
@@ -34,9 +34,7 @@ pub fn log_execution(
     match execution_result {
         Ok(signature) => debug!("Transaction {}", signature),
         Err(err) => {
-            error!("Transaction error: {}", err);
             if let anchor_client::ClientError::SolanaClientError(ce) = &err {
-                error!("Solana client error: {}", ce);
                 if let ClientErrorKind::RpcError(RpcError::RpcResponseError {
                     data:
                         RpcResponseErrorData::SendTransactionPreflightFailure(
@@ -51,12 +49,13 @@ pub fn log_execution(
                     ..
                 }) = ce.kind()
                 {
+                    error!("Solana client error: {}", ce);
                     for log in logs {
                         error!("Log: {}", log);
                     }
                 }
             }
-            bail!("Transaction error: {}", err);
+            bail!("Transaction error: {:?}", err);
         }
     }
     Ok(())
