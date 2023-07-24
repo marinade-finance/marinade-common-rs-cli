@@ -8,38 +8,10 @@ use solana_client::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcSendTransactionConfig;
 use solana_client::rpc_request::{RpcError, RpcResponseErrorData};
 use solana_client::rpc_response::{RpcResult, RpcSimulateTransactionResult};
-use solana_sdk::commitment_config::CommitmentLevel;
 use solana_sdk::signature::{Keypair, Signature};
 use solana_sdk::signer::Signer;
 use spl_token::solana_program::instruction::Instruction;
 use std::ops::Deref;
-
-pub trait TransactionExecutor {
-    fn execute(
-        self,
-        commitment: CommitmentLevel,
-        skip_preflight: bool,
-    ) -> Result<Signature, anchor_client::ClientError>;
-}
-
-impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionExecutor for RequestBuilder<'a, C> {
-    fn execute(
-        self,
-        commitment: CommitmentLevel,
-        skip_preflight: bool,
-    ) -> Result<Signature, anchor_client::ClientError> {
-        let preflight_commitment = if skip_preflight {
-            None
-        } else {
-            Some(commitment)
-        };
-        self.send_with_spinner_and_config(RpcSendTransactionConfig {
-            skip_preflight,
-            preflight_commitment,
-            ..RpcSendTransactionConfig::default()
-        })
-    }
-}
 
 pub fn log_execution(
     execution_result: &Result<Signature, anchor_client::ClientError>,
@@ -153,10 +125,10 @@ pub fn print_base64(instructions: &Vec<Instruction>) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn execute<'a, I, C>(
+pub fn execute_with_config<'a, I, C>(
     anchor_builders: I,
     rpc_client: &RpcClient,
-    skip_preflight: bool,
+    preflight_config: RpcSendTransactionConfig,
     simulate: bool,
     print_only: bool,
 ) -> anyhow::Result<()>
@@ -183,12 +155,11 @@ where
         }
     } else {
         // execute or print_only
-        let commitment_level = rpc_client.commitment().commitment;
         anchor_builders.into_iter().try_for_each(|builder| {
             if print_only {
                 print_base64(&builder.instructions()?)
             } else {
-                log_execution(&builder.execute(commitment_level, skip_preflight))
+                log_execution(&builder.send_with_spinner_and_config(preflight_config))
             }
         })?;
     }
@@ -196,10 +167,33 @@ where
     Ok(())
 }
 
-pub fn execute_single<C: Deref<Target = dynsigner::DynSigner> + Clone>(
-    anchor_builder: RequestBuilder<C>,
+pub fn execute<'a, I, C>(
+    anchor_builders: I,
     rpc_client: &RpcClient,
     skip_preflight: bool,
+    simulate: bool,
+    print_only: bool,
+) -> anyhow::Result<()>
+where
+    I: IntoIterator<Item = RequestBuilder<'a, C>>,
+    C: Deref<Target = dynsigner::DynSigner> + Clone,
+{
+    execute_with_config(
+        anchor_builders,
+        rpc_client,
+        RpcSendTransactionConfig {
+            skip_preflight,
+            ..RpcSendTransactionConfig::default()
+        },
+        simulate,
+        print_only,
+    )
+}
+
+pub fn execute_single_with_config<C: Deref<Target = dynsigner::DynSigner> + Clone>(
+    anchor_builder: RequestBuilder<C>,
+    rpc_client: &RpcClient,
+    preflight_config: RpcSendTransactionConfig,
     simulate: bool,
     print_only: bool,
 ) -> anyhow::Result<()> {
@@ -213,11 +207,29 @@ pub fn execute_single<C: Deref<Target = dynsigner::DynSigner> + Clone>(
         log_simulation(&anchor_builder.simulate(rpc_client))?;
     } else if !print_only {
         // !simulate && !print_only
-        let commitment_level = rpc_client.commitment().commitment;
-        log_execution(&anchor_builder.execute(commitment_level, skip_preflight))?;
+        log_execution(&anchor_builder.send_with_spinner_and_config(preflight_config))?;
     }
 
     Ok(())
+}
+
+pub fn execute_single<C: Deref<Target = dynsigner::DynSigner> + Clone>(
+    anchor_builder: RequestBuilder<C>,
+    rpc_client: &RpcClient,
+    skip_preflight: bool,
+    simulate: bool,
+    print_only: bool,
+) -> anyhow::Result<()> {
+    execute_single_with_config(
+        anchor_builder,
+        rpc_client,
+        RpcSendTransactionConfig {
+            skip_preflight,
+            ..RpcSendTransactionConfig::default()
+        },
+        simulate,
+        print_only,
+    )
 }
 
 fn warn_text_simulate_print_only(simulate: bool, print_only: bool) {
