@@ -17,7 +17,7 @@ pub fn log_execution(
     execution_result: &Result<Signature, anchor_client::ClientError>,
 ) -> anyhow::Result<()> {
     match execution_result {
-        Ok(signature) => debug!("Transaction {}", signature),
+        Ok(signature) => info!("Transaction {}", signature),
         Err(err) => {
             if let anchor_client::ClientError::SolanaClientError(ce) = &err {
                 if let ClientErrorKind::RpcError(RpcError::RpcResponseError {
