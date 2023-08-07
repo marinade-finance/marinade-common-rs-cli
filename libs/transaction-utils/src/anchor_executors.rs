@@ -10,8 +10,8 @@ use solana_client::rpc_request::{RpcError, RpcResponseErrorData};
 use solana_client::rpc_response::{RpcResult, RpcSimulateTransactionResult};
 use solana_sdk::signature::{Keypair, Signature};
 use solana_sdk::signer::Signer;
-use spl_token::solana_program::instruction::Instruction;
 use std::ops::Deref;
+use solana_sdk::instruction::Instruction;
 
 pub fn log_execution(
     execution_result: &Result<Signature, anchor_client::ClientError>,

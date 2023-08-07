@@ -9,7 +9,7 @@ use solana_sdk::pubkey::Pubkey;
 pub struct TransactionInstruction {
     // Target program to execute against.
     pub program_id: Pubkey,
-    // Accounts requried for the transaction.
+    // Accounts required for the transaction.
     pub accounts: Vec<TransactionAccount>,
     // Instruction data for the transaction.
     pub data: Vec<u8>,
