@@ -50,3 +50,23 @@ impl From<&AccountMeta> for TransactionAccount {
         }
     }
 }
+
+pub fn print_base64(instructions: &Vec<Instruction>) -> anyhow::Result<()> {
+    for instruction in instructions {
+        let transaction_instruction = TransactionInstruction {
+            program_id: instruction.program_id,
+            accounts: instruction
+                .accounts
+                .iter()
+                .map(TransactionAccount::from)
+                .collect(),
+            data: instruction.data.clone(),
+        };
+        println!("base64 instruction of program {}:", instruction.program_id);
+        println!(
+            " {}",
+            anchor_lang::__private::base64::encode(transaction_instruction.try_to_vec()?)
+        );
+    }
+    Ok(())
+}

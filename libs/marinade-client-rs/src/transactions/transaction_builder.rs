@@ -1,56 +1,15 @@
-use std::sync::Arc;
-
-use anyhow::Result;
+use crate::transactions::prepared_transaction::PreparedTransaction;
+use crate::transactions::signature_builder::SignatureBuilder;
+use anchor_client::RequestBuilder;
+use anyhow::anyhow;
 use once_cell::sync::OnceCell;
 use solana_sdk::{
-    hash::Hash,
-    instruction::Instruction,
-    packet::PACKET_DATA_SIZE,
-    pubkey::Pubkey,
-    signature::{Signer, SignerError},
+    instruction::Instruction, packet::PACKET_DATA_SIZE, pubkey::Pubkey, signature::Signer,
     transaction::Transaction,
 };
+use std::ops::Deref;
+use std::sync::Arc;
 use thiserror::Error;
-
-use crate::signature_builder::SignatureBuilder;
-
-pub struct PreparedTransaction {
-    pub transaction: Transaction,
-    pub signers: Vec<Arc<dyn Signer>>,
-    pub instruction_descriptions: Vec<String>,
-}
-
-impl PreparedTransaction {
-    pub fn new(
-        transaction: Transaction,
-        signature_builder: &SignatureBuilder,
-        instruction_descriptions: Vec<String>,
-    ) -> Result<Self, Pubkey> {
-        let signers = signature_builder.signers_for_transaction(&transaction)?;
-        Ok(Self {
-            transaction,
-            signers,
-            instruction_descriptions,
-        })
-    }
-
-    pub fn sign(&mut self, recent_blockhash: Hash) -> Result<&Transaction, SignerError> {
-        self.transaction.try_sign(
-            &self
-                .signers
-                .iter()
-                .map(|arc| arc.as_ref())
-                .collect::<Vec<_>>(),
-            recent_blockhash,
-        )?;
-        Ok(&self.transaction)
-    }
-
-    pub fn into_signed(mut self, recent_blockhash: Hash) -> Result<Transaction, SignerError> {
-        self.sign(recent_blockhash)?;
-        Ok(self.transaction)
-    }
-}
 
 #[derive(Debug, Clone, Error)]
 pub enum TransactionBuildError {
@@ -64,21 +23,23 @@ pub enum TransactionBuildError {
 pub struct TransactionBuilder {
     fee_payer: Pubkey,
     signature_builder: SignatureBuilder, // invariant: has signers for all instructions
-    instruction_packs: Vec<Vec<(Instruction, String)>>,
-    current_instruction_pack: OnceCell<Vec<(Instruction, String)>>,
+    instruction_packs: Vec<Vec<Instruction>>,
+    current_instruction_pack: OnceCell<Vec<Instruction>>,
     max_transaction_size: usize,
 }
 
 impl TransactionBuilder {
     pub fn new(fee_payer: Arc<dyn Signer>, max_transaction_size: usize) -> Self {
         let mut signature_builder = SignatureBuilder::default();
-        Self {
+        let builder = Self {
             fee_payer: signature_builder.add_signer(fee_payer),
             signature_builder,
             instruction_packs: Vec::new(),
             current_instruction_pack: OnceCell::new(),
             max_transaction_size,
-        }
+        };
+        builder.current_instruction_pack.set(Vec::new()).unwrap();
+        builder
     }
 
     pub fn fee_payer(&self) -> Pubkey {
@@ -107,8 +68,14 @@ impl TransactionBuilder {
         self.signature_builder.add_signer(signer)
     }
 
-    pub fn new_signer(&mut self) -> Pubkey {
+    pub fn generate_signer(&mut self) -> Pubkey {
         self.signature_builder.new_signer()
+    }
+
+    pub fn add_signer_checked(&mut self, signer: &Arc<dyn Signer>) {
+        if self.get_signer(&signer.pubkey()).is_none() {
+            self.add_signer(signer.clone());
+        }
     }
 
     fn check_signers(&self, instruction: &Instruction) -> Result<(), TransactionBuildError> {
@@ -121,92 +88,87 @@ impl TransactionBuilder {
     }
 
     #[inline]
-    pub fn begin(&mut self) {
-        self.current_instruction_pack
-            .set(Vec::new())
-            .expect("Double begin calls");
-    }
-
-    #[inline]
-    pub fn commit(&mut self) {
+    pub fn finish_instruction_pack(&mut self) {
         self.instruction_packs.push(
             self.current_instruction_pack
                 .take()
-                .expect("Commit without begin"),
-        )
+                .expect("Finish must be called when an instruction pack is defined"),
+        );
+        self.current_instruction_pack.set(Vec::new()).unwrap();
     }
 
     #[inline]
-    pub fn rollback(&mut self) {
+    pub fn abort_instruction_pack(&mut self) {
         self.current_instruction_pack
             .take()
-            .expect("Rollback must be after begin");
-    }
-
-    #[inline]
-    pub fn inside_transaction(&self) -> bool {
-        self.current_instruction_pack.get().is_some()
+            .expect("Abort must be called when an instruction pack is defined");
     }
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        (if let Some(current_instruction_pack) = self.current_instruction_pack.get() {
-            current_instruction_pack.is_empty()
-        } else {
-            true
-        }) && self.instruction_packs.is_empty()
+        self.is_current_pack_empty() && self.instruction_packs.is_empty()
     }
 
     #[inline]
-    pub fn add_instruction(
+    fn is_current_pack_empty(&self) -> bool {
+        if let Some(current_instruction_pack) = self.current_instruction_pack.get() {
+            current_instruction_pack.is_empty()
+        } else {
+            true
+        }
+    }
+
+    pub fn add_instructions_from_builder<C: Deref<Target = impl Signer> + Clone>(
         &mut self,
-        instruction: Instruction,
-        description: String,
-    ) -> Result<(), TransactionBuildError> {
-        self.check_signers(&instruction)?;
-        let add_transaction = !self.inside_transaction();
-        if add_transaction {
-            self.begin();
-        }
-        let current = self.current_instruction_pack.get_mut().unwrap();
+        request_builder: RequestBuilder<C>,
+    ) -> anyhow::Result<()> {
+        let instructions = request_builder.instructions().map_err(|e| anyhow!(e))?;
+        let res = self.add_instructions(instructions);
+        self.finish_instruction_pack();
+        res
+    }
 
-        current.push((instruction, description));
-        let transaction_candidate = Transaction::new_with_payer(
-            &current.iter().cloned().unzip::<_, _, Vec<_>, Vec<_>>().0,
-            Some(&self.fee_payer),
-        );
-        if self.max_transaction_size > 0
-            && bincode::serialize(&transaction_candidate).unwrap().len() > self.max_transaction_size
-        {
-            // Rollback
-            if add_transaction {
-                self.rollback();
-            } else {
-                current.pop();
-            }
-            return Err(TransactionBuildError::TooBigTransaction);
-        }
-
-        if add_transaction {
-            self.commit();
+    pub fn add_instructions<I>(&mut self, instructions: I) -> anyhow::Result<()>
+    where
+        I: IntoIterator<Item = Instruction>,
+    {
+        for instruction in instructions {
+            self.add_instruction(instruction)?;
         }
         Ok(())
     }
 
+    pub fn add_instruction(&mut self, instruction: Instruction) -> anyhow::Result<()> {
+        self.check_signers(&instruction)?;
+        let current = self.current_instruction_pack.get_mut().unwrap();
+
+        current.push(instruction);
+        let transaction_candidate =
+            Transaction::new_with_payer(&current.to_vec(), Some(&self.fee_payer));
+        if self.max_transaction_size > 0
+            && bincode::serialize(&transaction_candidate).unwrap().len() > self.max_transaction_size
+        {
+            // Transaction is too big to add new instruction, remove the last one
+            current.pop();
+            return Err(anyhow!(TransactionBuildError::TooBigTransaction));
+        }
+
+        Ok(())
+    }
+
     pub fn build_next(&mut self) -> Option<PreparedTransaction> {
-        assert!(
-            self.current_instruction_pack
-                .get()
-                .map(Vec::is_empty)
-                .unwrap_or(true),
-            "Not committed transaction"
-        );
+        if !self.is_current_pack_empty() {
+            self.finish_instruction_pack()
+        }
+        if self.is_empty() {
+            return None;
+        }
         if !self.instruction_packs.is_empty() {
-            let (instructions, descriptions): (Vec<Instruction>, Vec<String>) =
-                self.instruction_packs.remove(0).into_iter().unzip();
+            let instructions: Vec<Instruction> =
+                self.instruction_packs.remove(0).into_iter().collect();
             let transaction = Transaction::new_with_payer(&instructions, Some(&self.fee_payer));
             Some(
-                PreparedTransaction::new(transaction, &self.signature_builder, descriptions)
+                PreparedTransaction::new(transaction, &self.signature_builder)
                     .expect("Signature keys must be checked when instruction added"),
             )
         } else {
@@ -223,35 +185,28 @@ impl TransactionBuilder {
         }
     }
 
+    // Next transaction from builder that's
     pub fn build_next_combined(&mut self) -> Option<PreparedTransaction> {
-        assert!(
-            self.current_instruction_pack
-                .get()
-                .map(Vec::is_empty)
-                .unwrap_or(true),
-            "Not committed transaction"
-        );
+        if !self.is_current_pack_empty() {
+            self.finish_instruction_pack()
+        }
         if self.instruction_packs.is_empty() {
             return None;
         }
-        let (transaction, descriptions) = if self.max_transaction_size == 0 {
-            let (instructions, descriptions): (Vec<Instruction>, Vec<String>) =
-                self.instruction_packs.drain(..).flatten().unzip();
-            (
-                Transaction::new_with_payer(&instructions, Some(&self.fee_payer)),
-                descriptions,
-            )
+
+        let transaction = if self.max_transaction_size == 0 {
+            let instructions: Vec<Instruction> =
+                self.instruction_packs.drain(..).flatten().collect();
+            Transaction::new_with_payer(&instructions, Some(&self.fee_payer))
         } else {
             // One pack must fit transaction anyways
-            let (mut instructions, mut descriptions): (Vec<Instruction>, Vec<String>) =
-                self.instruction_packs.remove(0).into_iter().unzip();
+            let mut instructions: Vec<Instruction> =
+                self.instruction_packs.remove(0).into_iter().collect();
             let mut transaction = Transaction::new_with_payer(&instructions, Some(&self.fee_payer));
             while let Some(next_pack) = self.instruction_packs.get(0) {
-                let (next_instructions, next_descriptions): (Vec<Instruction>, Vec<String>) =
-                    next_pack.iter().cloned().unzip();
+                let next_instructions: Vec<Instruction> = next_pack.to_vec();
                 // Try to add next pack
                 instructions.extend(next_instructions.into_iter());
-                descriptions.extend(next_descriptions.into_iter());
                 let transaction_candidate =
                     Transaction::new_with_payer(&instructions, Some(&self.fee_payer));
 
@@ -267,15 +222,15 @@ impl TransactionBuilder {
                     break;
                 }
             }
-            (transaction, descriptions)
+            transaction
         };
         Some(
-            PreparedTransaction::new(transaction, &self.signature_builder, descriptions)
+            PreparedTransaction::new(transaction, &self.signature_builder)
                 .expect("Signature keys must be checked when instruction added"),
         )
     }
 
-    pub fn build_one_combined(&mut self) -> Option<PreparedTransaction> {
+    pub fn build_single_combined(&mut self) -> Option<PreparedTransaction> {
         if let Some(transaction) = self.build_next_combined() {
             assert!(self.is_empty(), "Not fit single transaction");
             Some(transaction)
@@ -284,26 +239,27 @@ impl TransactionBuilder {
         }
     }
 
-    pub fn combined_sequence(&mut self) -> CombinedSequence {
+    pub fn sequence(&mut self) -> Sequence {
+        Sequence { builder: self }
+    }
+
+    pub fn sequence_combined(&mut self) -> CombinedSequence {
         CombinedSequence { builder: self }
     }
 
-    pub fn fit_into_single_transaction(&self) -> bool {
-        let mut instructions: Vec<Instruction> = self
-            .instruction_packs
-            .iter()
-            .flatten()
-            .map(|(instruction, _description)| instruction.clone())
-            .collect();
-        if let Some(current_instructions) = self.current_instruction_pack.get() {
-            instructions.extend(
-                current_instructions
-                    .iter()
-                    .map(|(instruction, _description)| instruction.clone()),
-            )
-        }
+    pub fn fits_single_transaction(&self) -> bool {
+        let instructions: Vec<Instruction> = self.instructions();
         let transaction = Transaction::new_with_payer(&instructions, Some(&self.fee_payer));
         bincode::serialize(&transaction).unwrap().len() <= self.max_transaction_size
+    }
+
+    pub fn instructions(&self) -> Vec<Instruction> {
+        let mut instructions: Vec<Instruction> =
+            self.instruction_packs.iter().flatten().cloned().collect();
+        if let Some(current_instructions) = self.current_instruction_pack.get() {
+            instructions.extend(current_instructions.iter().cloned())
+        }
+        instructions
     }
 }
 

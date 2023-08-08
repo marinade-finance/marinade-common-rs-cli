@@ -1,11 +1,11 @@
 #![allow(clippy::too_many_arguments)]
-use crate::instructions::{
+use crate::marinade::instructions::{
     add_liquidity, add_validator, change_authority, claim, config_lp, config_marinade,
     config_validator_system, deactivate_stake, deposit, deposit_stake_account, emergency_unstake,
     initialize, liquid_unstake, merge_stakes, order_unstake, partial_unstake, remove_liquidity,
     remove_validator, set_validator_score, stake_reserve, update_active, update_deactivated,
 };
-use crate::rpc_marinade::RpcMarinade;
+use crate::marinade::rpc_marinade::RpcMarinade;
 use anchor_client::RequestBuilder;
 use marinade_finance::instructions::{ChangeAuthorityData, ConfigMarinadeParams};
 use marinade_finance::state::Fee;
@@ -14,7 +14,7 @@ use solana_sdk::signer::Signer;
 use std::ops::Deref;
 use std::sync::Arc;
 
-pub trait TransactionBuilderMarinade<'a, C> {
+pub trait MarinadeRequestBuilder<'a, C> {
     fn add_validator(
         &'a self,
         validator_manager_authority: &'a Arc<dyn Signer>,
@@ -192,9 +192,7 @@ pub trait TransactionBuilderMarinade<'a, C> {
     ) -> anyhow::Result<RequestBuilder<C>>;
 }
 
-impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionBuilderMarinade<'a, C>
-    for RpcMarinade<C>
-{
+impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> for RpcMarinade<C> {
     fn add_validator(
         &'a self,
         validator_manager_authority: &'a Arc<dyn Signer>,

@@ -1804,6 +1804,7 @@ dependencies = [
  "solana-sdk",
  "spl-associated-token-account",
  "spl-token",
+ "thiserror",
 ]
 
 [[package]]
@@ -1827,23 +1828,6 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "solana-security-txt",
-]
-
-[[package]]
-name = "marinade-transaction-utils"
-version = "1.0.0"
-dependencies = [
- "anchor-client",
- "anchor-lang",
- "anyhow",
- "bincode",
- "borsh",
- "dynsigner",
- "log",
- "once_cell",
- "solana-client",
- "solana-sdk",
- "thiserror",
 ]
 
 [[package]]

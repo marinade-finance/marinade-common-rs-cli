@@ -1,20 +1,22 @@
-use crate::transaction_instruction::{TransactionAccount, TransactionInstruction};
+use crate::transactions::prepared_transaction::PreparedTransaction;
+use crate::transactions::transaction_builder::TransactionBuilder;
+use crate::transactions::transaction_instruction::print_base64;
 use anchor_client::RequestBuilder;
 use anyhow::bail;
-use borsh::BorshSerialize;
 use log::{debug, error, info, warn};
+use solana_client::client_error::ClientError as SolanaClientError;
 use solana_client::client_error::ClientErrorKind;
 use solana_client::rpc_client::RpcClient;
-use solana_client::rpc_config::RpcSendTransactionConfig;
+use solana_client::rpc_config::{RpcSendTransactionConfig, RpcSimulateTransactionConfig};
 use solana_client::rpc_request::{RpcError, RpcResponseErrorData};
 use solana_client::rpc_response::{RpcResult, RpcSimulateTransactionResult};
+use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
 use solana_sdk::signature::{Keypair, Signature};
 use solana_sdk::signer::Signer;
 use std::ops::Deref;
-use solana_sdk::instruction::Instruction;
 
 pub fn log_execution(
-    execution_result: &Result<Signature, anchor_client::ClientError>,
+    execution_result: &anyhow::Result<Signature, anchor_client::ClientError>,
 ) -> anyhow::Result<()> {
     match execution_result {
         Ok(signature) => info!("Transaction {}", signature),
@@ -52,9 +54,9 @@ pub trait TransactionSimulator {
 
 impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for RequestBuilder<'a, C> {
     fn simulate(&self, rpc_client: &RpcClient) -> RpcResult<RpcSimulateTransactionResult> {
-        let mut tx = self
-            .transaction()
-            .map_err(|err| RpcError::RpcRequestError(format!("Transaction error: {}", err)))?;
+        let mut tx = self.transaction().map_err(|err| {
+            RpcError::ForUser(format!("Request builder transaction error: {}", err))
+        })?;
         let recent_blockhash = rpc_client.get_latest_blockhash()?;
         tx.partial_sign::<Vec<&Keypair>>(&vec![], recent_blockhash);
         rpc_client.simulate_transaction(&tx)
@@ -105,26 +107,6 @@ pub fn log_simulation(
     Ok(())
 }
 
-pub fn print_base64(instructions: &Vec<Instruction>) -> anyhow::Result<()> {
-    for instruction in instructions {
-        let transaction_instruction = TransactionInstruction {
-            program_id: instruction.program_id,
-            accounts: instruction
-                .accounts
-                .iter()
-                .map(TransactionAccount::from)
-                .collect(),
-            data: instruction.data.clone(),
-        };
-        println!("base64 instruction of program {}:", instruction.program_id);
-        println!(
-            " {}",
-            anchor_lang::__private::base64::encode(transaction_instruction.try_to_vec()?)
-        );
-    }
-    Ok(())
-}
-
 pub fn execute_with_config<'a, I, C>(
     anchor_builders: I,
     rpc_client: &RpcClient,
@@ -139,19 +121,11 @@ where
     warn_text_simulate_print_only(simulate, print_only);
 
     if simulate {
-        let mut count = 0u32;
         for builder in anchor_builders {
             if print_only {
                 print_base64(&builder.instructions()?)?;
-                continue;
             }
             log_simulation(&builder.simulate(rpc_client))?;
-            count += 1;
-        }
-        if count > 1 {
-            warn!(
-                "Simulation mode: only the first transaction was simulated. The rest are ignored."
-            );
         }
     } else {
         // execute or print_only
@@ -230,6 +204,109 @@ pub fn execute_single<C: Deref<Target = dynsigner::DynSigner> + Clone>(
         simulate,
         print_only,
     )
+}
+
+pub fn execute_single_tx_with_config<C: Deref<Target = dynsigner::DynSigner> + Clone>(
+    anchor_builder: RequestBuilder<C>,
+    rpc_client: &RpcClient,
+    preflight_config: RpcSendTransactionConfig,
+    simulate: bool,
+    print_only: bool,
+) -> anyhow::Result<()> {
+    warn_text_simulate_print_only(simulate, print_only);
+
+    if print_only {
+        print_base64(&anchor_builder.instructions()?)?;
+    }
+
+    if simulate {
+        log_simulation(&anchor_builder.simulate(rpc_client))?;
+    } else if !print_only {
+        // !simulate && !print_only
+        log_execution(&anchor_builder.send_with_spinner_and_config(preflight_config))?;
+    }
+
+    Ok(())
+}
+
+pub fn execute_transaction_builder(
+    transaction_builder: &mut TransactionBuilder,
+    rpc_client: &RpcClient,
+    preflight_config: RpcSendTransactionConfig,
+    blockhash_commitment: CommitmentLevel,
+    simulate: bool,
+    print_only: bool,
+) -> anyhow::Result<()> {
+    warn_text_simulate_print_only(simulate, print_only);
+
+    if print_only {
+        print_base64(&transaction_builder.instructions())?;
+    }
+
+    if simulate {
+        for mut prepared_transaction in transaction_builder.sequence_combined() {
+            let simulation_result = simulate_prepared_transaction(
+                &mut prepared_transaction,
+                rpc_client,
+                RpcSimulateTransactionConfig {
+                    sig_verify: true,
+                    ..RpcSimulateTransactionConfig::default()
+                },
+            );
+            log_simulation(&simulation_result)?;
+        }
+    } else {
+        for mut prepared_transaction in transaction_builder.sequence_combined() {
+            let execution_result = execute_prepared_transaction(
+                &mut prepared_transaction,
+                rpc_client,
+                preflight_config,
+                blockhash_commitment,
+            );
+            log_execution(&execution_result)?;
+        }
+    }
+
+    Ok(())
+}
+
+pub fn execute_prepared_transaction(
+    prepared_transaction: &mut PreparedTransaction,
+    rpc_client: &RpcClient,
+    preflight_config: RpcSendTransactionConfig,
+    blockhash_commitment: CommitmentLevel,
+) -> Result<Signature, anchor_client::ClientError> {
+    let rpc_client_blockhash = RpcClient::new_with_commitment(
+        rpc_client.url(),
+        CommitmentConfig {
+            commitment: blockhash_commitment,
+        },
+    );
+    let latest_hash = rpc_client_blockhash.get_latest_blockhash()?;
+    let tx = prepared_transaction
+        .sign(latest_hash)
+        .map_err(|e| anchor_client::ClientError::SolanaClientError(SolanaClientError::from(e)))?;
+
+    rpc_client
+        .send_and_confirm_transaction_with_spinner_and_config(
+            tx,
+            rpc_client.commitment(),
+            preflight_config,
+        )
+        .map_err(Into::into)
+}
+
+pub fn simulate_prepared_transaction(
+    prepared_transaction: &mut PreparedTransaction,
+    rpc_client: &RpcClient,
+    simulate_config: RpcSimulateTransactionConfig,
+) -> RpcResult<RpcSimulateTransactionResult> {
+    let latest_hash = rpc_client.get_latest_blockhash()?;
+    let tx = prepared_transaction
+        .sign(latest_hash)
+        .map_err(|err| RpcError::ForUser(format!("Signature error: {}", err)))?;
+
+    rpc_client.simulate_transaction_with_config(tx, simulate_config)
 }
 
 fn warn_text_simulate_print_only(simulate: bool, print_only: bool) {

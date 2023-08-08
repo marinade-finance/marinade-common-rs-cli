@@ -1,4 +1,6 @@
-use crate::state::{stake_list, stakes_info, stakes_info_reversed, validator_list, StakeInfo};
+use crate::marinade::state::{
+    stake_list, stakes_info, stakes_info_reversed, validator_list, StakeInfo,
+};
 use anchor_client::{Client, Program};
 use marinade_finance::state::stake_system::StakeRecord;
 use marinade_finance::state::validator_system::ValidatorRecord;

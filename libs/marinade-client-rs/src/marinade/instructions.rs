@@ -1,5 +1,5 @@
 #![allow(clippy::too_many_arguments)]
-use crate::verifiers::{verify_admin_authority, verify_manager_authority};
+use crate::marinade::verifiers::{verify_admin_authority, verify_manager_authority};
 use anchor_client::{Program, RequestBuilder};
 use marinade_finance::state::liq_pool::LiqPool;
 use marinade_finance::state::stake_system::StakeSystem;
