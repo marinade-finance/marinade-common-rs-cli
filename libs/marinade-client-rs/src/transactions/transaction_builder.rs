@@ -121,24 +121,24 @@ impl TransactionBuilder {
     pub fn add_instructions_from_builder<C: Deref<Target = impl Signer> + Clone>(
         &mut self,
         request_builder: RequestBuilder<C>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<&mut Self> {
         let instructions = request_builder.instructions().map_err(|e| anyhow!(e))?;
-        let res = self.add_instructions(instructions);
+        self.add_instructions(instructions)?;
         self.finish_instruction_pack();
-        res
+        Ok(self)
     }
 
-    pub fn add_instructions<I>(&mut self, instructions: I) -> anyhow::Result<()>
+    pub fn add_instructions<I>(&mut self, instructions: I) -> anyhow::Result<&mut Self>
     where
         I: IntoIterator<Item = Instruction>,
     {
         for instruction in instructions {
             self.add_instruction(instruction)?;
         }
-        Ok(())
+        Ok(self)
     }
 
-    pub fn add_instruction(&mut self, instruction: Instruction) -> anyhow::Result<()> {
+    pub fn add_instruction(&mut self, instruction: Instruction) -> anyhow::Result<&mut Self> {
         self.check_signers(&instruction)?;
         let current = self.current_instruction_pack.get_mut().unwrap();
 
@@ -153,7 +153,7 @@ impl TransactionBuilder {
             return Err(anyhow!(TransactionBuildError::TooBigTransaction));
         }
 
-        Ok(())
+        Ok(self)
     }
 
     pub fn build_next(&mut self) -> Option<PreparedTransaction> {
