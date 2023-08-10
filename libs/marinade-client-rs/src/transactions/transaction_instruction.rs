@@ -62,9 +62,9 @@ pub fn print_base64(instructions: &Vec<Instruction>) -> anyhow::Result<()> {
                 .collect(),
             data: instruction.data.clone(),
         };
-        println!("base64 instruction of program {}:", instruction.program_id);
         println!(
-            " {}",
+            "program: {}\n  {}",
+            instruction.program_id,
             anchor_lang::__private::base64::encode(transaction_instruction.try_to_vec()?)
         );
     }

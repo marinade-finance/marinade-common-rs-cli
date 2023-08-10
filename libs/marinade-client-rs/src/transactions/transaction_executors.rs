@@ -245,13 +245,25 @@ pub fn execute_transaction_builder(
 
     if simulate {
         for mut prepared_transaction in transaction_builder.sequence_combined() {
+            let simulation_config_default = RpcSimulateTransactionConfig::default();
+            let simulation_commitment = if preflight_config.preflight_commitment.is_some() {
+                Some(CommitmentConfig {
+                    commitment: preflight_config.preflight_commitment.unwrap(),
+                })
+            } else {
+                simulation_config_default.commitment
+            };
             let simulation_result = simulate_prepared_transaction(
                 &mut prepared_transaction,
                 rpc_client,
                 RpcSimulateTransactionConfig {
                     sig_verify: true,
-                    ..RpcSimulateTransactionConfig::default()
+                    commitment: simulation_commitment,
+                    encoding: preflight_config.encoding,
+                    min_context_slot: preflight_config.min_context_slot,
+                    ..simulation_config_default
                 },
+                blockhash_commitment,
             );
             log_simulation(&simulation_result)?;
         }
@@ -300,8 +312,15 @@ pub fn simulate_prepared_transaction(
     prepared_transaction: &mut PreparedTransaction,
     rpc_client: &RpcClient,
     simulate_config: RpcSimulateTransactionConfig,
+    blockhash_commitment: CommitmentLevel,
 ) -> RpcResult<RpcSimulateTransactionResult> {
-    let latest_hash = rpc_client.get_latest_blockhash()?;
+    let rpc_client_blockhash = RpcClient::new_with_commitment(
+        rpc_client.url(),
+        CommitmentConfig {
+            commitment: blockhash_commitment,
+        },
+    );
+    let latest_hash = rpc_client_blockhash.get_latest_blockhash()?;
     let tx = prepared_transaction
         .sign(latest_hash)
         .map_err(|err| RpcError::ForUser(format!("Signature error: {}", err)))?;
