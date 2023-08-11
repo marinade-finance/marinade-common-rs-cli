@@ -37,3 +37,13 @@ pub fn verify_rent_payer(rpc_client: &RpcClient, rent_payer: Pubkey) -> anyhow::
     }
     Ok(())
 }
+
+pub fn verify_pause_authority(state: &State, pause_authority: Pubkey) -> anyhow::Result<()> {
+    if state.pause_authority != pause_authority {
+        bail!("Pause-authority {} to sign the transaction mismatches Marinade state pause authority {}",
+                pause_authority,
+                state.pause_authority
+            );
+    }
+    Ok(())
+}

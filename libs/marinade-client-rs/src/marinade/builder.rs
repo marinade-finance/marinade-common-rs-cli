@@ -1,9 +1,10 @@
 #![allow(clippy::too_many_arguments)]
 use crate::marinade::instructions::{
     add_liquidity, add_validator, change_authority, claim, config_lp, config_marinade,
-    config_validator_system, deactivate_stake, deposit, deposit_stake_account, emergency_unstake,
-    initialize, liquid_unstake, merge_stakes, order_unstake, partial_unstake, remove_liquidity,
-    remove_validator, set_validator_score, stake_reserve, update_active, update_deactivated,
+    config_validator_system, deactivate_stake, deposit, deposit_stake_account, emergency_pause,
+    emergency_resume, emergency_unstake, initialize, liquid_unstake, merge_stakes, order_unstake,
+    partial_unstake, redelegate, remove_liquidity, remove_validator, set_validator_score,
+    stake_reserve, update_active, update_deactivated, withdraw_stake_account,
 };
 use crate::marinade::rpc_marinade::RpcMarinade;
 use anchor_client::RequestBuilder;
@@ -105,7 +106,6 @@ pub trait MarinadeRequestBuilder<'a, C> {
     fn initialize(
         &'a self,
         state: &'a Arc<dyn Signer>,
-        creator_authority: &'a Arc<dyn Signer>,
         msol_mint: Pubkey,
         operational_sol_account: Pubkey,
         stake_list: Pubkey,
@@ -162,6 +162,7 @@ pub trait MarinadeRequestBuilder<'a, C> {
         validator_index: u32,
         validator_vote: Pubkey,
         stake_account: Pubkey,
+        rent_payer: &'a Arc<dyn Signer>,
     ) -> anyhow::Result<RequestBuilder<C>>;
 
     fn update_active(
@@ -188,6 +189,41 @@ pub trait MarinadeRequestBuilder<'a, C> {
     fn claim(
         &'a self,
         ticket_account: Pubkey,
+        beneficiary: Pubkey,
+    ) -> anyhow::Result<RequestBuilder<C>>;
+
+    fn emergency_pause(
+        &'a self,
+        pause_authority: &'a Arc<dyn Signer>,
+    ) -> anyhow::Result<RequestBuilder<C>>;
+
+    fn emergency_resume(
+        &'a self,
+        pause_authority: &'a Arc<dyn Signer>,
+    ) -> anyhow::Result<RequestBuilder<C>>;
+
+    fn redelegate(
+        &'a self,
+        stake_account: Pubkey,
+        split_stake_account: &'a Arc<dyn Signer>,
+        split_stake_rent_payer: &'a Arc<dyn Signer>,
+        dest_validator_account: Pubkey, // dest_validator_vote
+        redelegate_stake_account: &'a Arc<dyn Signer>,
+        stake_index: u32,
+        source_validator_index: u32,
+        dest_validator_index: u32,
+    ) -> anyhow::Result<RequestBuilder<C>>;
+
+    fn withdraw_stake_account(
+        &'a self,
+        stake_account: Pubkey,
+        burn_msol_from: Pubkey,
+        burn_msol_authority: &'a Arc<dyn Signer>, // delegated or owner
+        split_stake_account: &'a Arc<dyn Signer>,
+        split_stake_rent_payer: &'a Arc<dyn Signer>,
+        validator_index: u32,
+        stake_index: u32,
+        msol_amount: u64,
         beneficiary: Pubkey,
     ) -> anyhow::Result<RequestBuilder<C>>;
 }
@@ -392,7 +428,6 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
     fn initialize(
         &'a self,
         state: &'a Arc<dyn Signer>,
-        creator_authority: &'a Arc<dyn Signer>,
         msol_mint: Pubkey,
         operational_sol_account: Pubkey,
         stake_list: Pubkey,
@@ -412,7 +447,6 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             treasury_msol_account,
             lp_mint,
             liq_pool_msol_leg,
-            creator_authority,
             data,
         )
     }
@@ -514,6 +548,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
         validator_index: u32,
         validator_vote: Pubkey,
         stake_account: Pubkey,
+        rent_payer: &'a Arc<dyn Signer>,
     ) -> anyhow::Result<RequestBuilder<C>> {
         stake_reserve(
             &self.program,
@@ -522,6 +557,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             validator_index,
             validator_vote,
             stake_account,
+            rent_payer,
         )
     }
 
@@ -582,6 +618,84 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             &self.program,
             self.instance_pubkey,
             ticket_account,
+            beneficiary,
+        )
+    }
+
+    fn emergency_pause(
+        &'a self,
+        pause_authority: &'a Arc<dyn Signer>,
+    ) -> anyhow::Result<RequestBuilder<C>> {
+        emergency_pause(
+            &self.program,
+            self.instance_pubkey,
+            &self.state,
+            pause_authority,
+        )
+    }
+
+    fn emergency_resume(
+        &'a self,
+        pause_authority: &'a Arc<dyn Signer>,
+    ) -> anyhow::Result<RequestBuilder<C>> {
+        emergency_resume(
+            &self.program,
+            self.instance_pubkey,
+            &self.state,
+            pause_authority,
+        )
+    }
+
+    fn redelegate(
+        &'a self,
+        stake_account: Pubkey,
+        split_stake_account: &'a Arc<dyn Signer>,
+        split_stake_rent_payer: &'a Arc<dyn Signer>,
+        dest_validator_account: Pubkey, // dest_validator_vote
+        redelegate_stake_account: &'a Arc<dyn Signer>,
+        stake_index: u32,
+        source_validator_index: u32,
+        dest_validator_index: u32,
+    ) -> anyhow::Result<RequestBuilder<C>> {
+        redelegate(
+            &self.program,
+            self.instance_pubkey,
+            &self.state,
+            stake_account,
+            split_stake_account,
+            split_stake_rent_payer,
+            dest_validator_account,
+            redelegate_stake_account,
+            stake_index,
+            source_validator_index,
+            dest_validator_index,
+        )
+    }
+
+    fn withdraw_stake_account(
+        &'a self,
+        stake_account: Pubkey,
+        burn_msol_from: Pubkey,
+        burn_msol_authority: &'a Arc<dyn Signer>, // delegated or owner
+        split_stake_account: &'a Arc<dyn Signer>,
+        split_stake_rent_payer: &'a Arc<dyn Signer>,
+        validator_index: u32,
+        stake_index: u32,
+        msol_amount: u64,
+        beneficiary: Pubkey,
+    ) -> anyhow::Result<RequestBuilder<C>> {
+        withdraw_stake_account(
+            &self.program,
+            self.instance_pubkey,
+            &self.state,
+            stake_account,
+            burn_msol_from,
+            burn_msol_authority,
+            split_stake_account,
+            split_stake_rent_payer,
+            validator_index,
+            stake_index,
+            msol_amount,
             beneficiary,
         )
     }
