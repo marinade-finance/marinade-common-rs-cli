@@ -73,7 +73,7 @@ impl TransactionBuilder {
     }
 
     pub fn add_signer_checked(&mut self, signer: &Arc<dyn Signer>) {
-        if self.get_signer(&signer.pubkey()).is_none() {
+        if !self.signature_builder.contains_key(&signer.pubkey()) {
             self.add_signer(signer.clone());
         }
     }
@@ -284,5 +284,49 @@ impl<'a> Iterator for CombinedSequence<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.builder.build_next_combined()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use solana_sdk::instruction::AccountMeta;
+    use solana_sdk::signature::Keypair;
+
+    #[test]
+    fn test_add_signer() {
+        let signer1: Arc<dyn Signer> = Arc::new(Keypair::new());
+        let signer2: Arc<dyn Signer> = Arc::new(Keypair::new());
+        let mut tx_builder = TransactionBuilder::limited(Arc::new(Keypair::new()));
+        tx_builder.add_signer_checked(&signer1);
+        tx_builder.add_signer_checked(&signer2);
+        tx_builder.add_signer_checked(&signer1);
+        assert_eq!(tx_builder.signature_builder.signers.len(), 3); // fee payer + 2 signers
+
+        tx_builder.add_signer(signer1.clone());
+        assert_eq!(tx_builder.signature_builder.signers.len(), 3);
+
+        let ix = Instruction {
+            program_id: Pubkey::default(),
+            accounts: vec![
+                AccountMeta {
+                    is_signer: true,
+                    is_writable: false,
+                    pubkey: signer2.pubkey(),
+                },
+                AccountMeta {
+                    is_signer: true,
+                    is_writable: false,
+                    pubkey: signer1.pubkey(),
+                },
+                AccountMeta {
+                    is_signer: true,
+                    is_writable: false,
+                    pubkey: tx_builder.fee_payer,
+                },
+            ],
+            data: vec![],
+        };
+        assert_eq!(tx_builder.check_signers(&ix).is_ok(), true);
     }
 }
