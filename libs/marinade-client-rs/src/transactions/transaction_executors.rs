@@ -55,6 +55,7 @@ pub trait TransactionSimulator {
 impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for RequestBuilder<'a, C> {
     fn simulate(&self, rpc_client: &RpcClient) -> RpcResult<RpcSimulateTransactionResult> {
         let mut tx = self.transaction().map_err(|err| {
+            debug!("Cannot build transactions from builder: {:?}", err);
             RpcError::ForUser(format!("Request builder transaction error: {}", err))
         })?;
         let recent_blockhash = rpc_client.get_latest_blockhash()?;
@@ -295,9 +296,13 @@ pub fn execute_prepared_transaction(
         },
     );
     let latest_hash = rpc_client_blockhash.get_latest_blockhash()?;
-    let tx = prepared_transaction
-        .sign(latest_hash)
-        .map_err(|e| anchor_client::ClientError::SolanaClientError(SolanaClientError::from(e)))?;
+    let tx = prepared_transaction.sign(latest_hash).map_err(|e| {
+        debug!(
+            "execute_prepared_transaction: error signing transaction with blockhash: {}: {:?}",
+            latest_hash, e
+        );
+        anchor_client::ClientError::SolanaClientError(SolanaClientError::from(e))
+    })?;
 
     rpc_client
         .send_and_confirm_transaction_with_spinner_and_config(
@@ -305,7 +310,11 @@ pub fn execute_prepared_transaction(
             rpc_client.commitment(),
             preflight_config,
         )
-        .map_err(Into::into)
+        .map_err(|e|{
+            debug!("execute_prepared_transaction: error send_and_confirm transaction '{:?}', signers: '{:?}': {:?}",
+                prepared_transaction.transaction, prepared_transaction.signers.iter().map(|s| s.pubkey()), e);
+            e.into()
+        })
 }
 
 pub fn simulate_prepared_transaction(
@@ -321,9 +330,13 @@ pub fn simulate_prepared_transaction(
         },
     );
     let latest_hash = rpc_client_blockhash.get_latest_blockhash()?;
-    let tx = prepared_transaction
-        .sign(latest_hash)
-        .map_err(|err| RpcError::ForUser(format!("Signature error: {}", err)))?;
+    let tx = prepared_transaction.sign(latest_hash).map_err(|e| {
+        debug!(
+            "simulate_prepared_transaction: error signing transaction with blockhash: {}: {:?}",
+            latest_hash, e
+        );
+        RpcError::ForUser(format!("Signature error: {}", e))
+    })?;
 
     rpc_client.simulate_transaction_with_config(tx, simulate_config)
 }

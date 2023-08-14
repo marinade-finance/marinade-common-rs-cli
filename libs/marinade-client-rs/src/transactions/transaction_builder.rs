@@ -2,6 +2,7 @@ use crate::transactions::prepared_transaction::PreparedTransaction;
 use crate::transactions::signature_builder::SignatureBuilder;
 use anchor_client::RequestBuilder;
 use anyhow::anyhow;
+use log::debug;
 use once_cell::sync::OnceCell;
 use solana_sdk::{
     instruction::Instruction, packet::PACKET_DATA_SIZE, pubkey::Pubkey, signature::Signer,
@@ -122,7 +123,13 @@ impl TransactionBuilder {
         &mut self,
         request_builder: RequestBuilder<C>,
     ) -> anyhow::Result<&mut Self> {
-        let instructions = request_builder.instructions().map_err(|e| anyhow!(e))?;
+        let instructions = request_builder.instructions().map_err(|e| {
+            debug!(
+                "add_instructions_from_builder: error building instructions: {:?}",
+                e
+            );
+            anyhow!(e)
+        })?;
         self.add_instructions(instructions)?;
         self.finish_instruction_pack();
         Ok(self)

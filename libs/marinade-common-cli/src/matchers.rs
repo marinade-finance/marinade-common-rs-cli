@@ -6,6 +6,7 @@ use solana_remote_wallet::remote_wallet::RemoteWalletManager;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
 
+use log::debug;
 use std::{str::FromStr, sync::Arc};
 
 // Getting signer from the matched name as the keypair path argument, or returns the default signer
@@ -18,7 +19,11 @@ pub fn signer_from_path_or_default(
     if let Some(location) = matches.value_of(name) {
         Ok(Arc::from(
             signer_from_path(matches, location, name, wallet_manager)
-                .map_err(|err| anyhow!("{}: {}", err, location))?,
+                .map_err(|e| {
+                    debug!("signer_from_path_or_default failed: location {}, keypair name: {}, matches: {:?}: {:?}",
+                        location, name, matches, e);
+                    anyhow!("{}: {}", e, location)
+                })?,
         ))
     } else {
         Ok(default_signer.clone())
