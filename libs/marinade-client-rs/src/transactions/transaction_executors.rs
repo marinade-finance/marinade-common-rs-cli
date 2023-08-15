@@ -106,7 +106,7 @@ pub fn log_simulation(
     Ok(())
 }
 
-pub fn execute_with_config<'a, I, C>(
+pub fn execute_anchor_builders_with_config<'a, I, C>(
     anchor_builders: I,
     rpc_client: &RpcClient,
     preflight_config: RpcSendTransactionConfig,
@@ -140,7 +140,7 @@ where
     Ok(())
 }
 
-pub fn execute<'a, I, C>(
+pub fn execute_anchor_builders<'a, I, C>(
     anchor_builders: I,
     rpc_client: &RpcClient,
     skip_preflight: bool,
@@ -151,7 +151,7 @@ where
     I: IntoIterator<Item = RequestBuilder<'a, C>>,
     C: Deref<Target = dynsigner::DynSigner> + Clone,
 {
-    execute_with_config(
+    execute_anchor_builders_with_config(
         anchor_builders,
         rpc_client,
         RpcSendTransactionConfig {
@@ -163,69 +163,36 @@ where
     )
 }
 
-pub fn execute_single_with_config<C: Deref<Target = dynsigner::DynSigner> + Clone>(
+pub fn execute_anchor_builder_with_config<C: Deref<Target = dynsigner::DynSigner> + Clone>(
     anchor_builder: RequestBuilder<C>,
     rpc_client: &RpcClient,
     preflight_config: RpcSendTransactionConfig,
     simulate: bool,
     print_only: bool,
 ) -> anyhow::Result<()> {
-    warn_text_simulate_print_only(simulate, print_only);
-
-    if print_only {
-        print_base64(&anchor_builder.instructions()?)?;
-    }
-
-    if simulate {
-        log_simulation(&anchor_builder.simulate(rpc_client))?;
-    } else if !print_only {
-        // !simulate && !print_only
-        log_execution(&anchor_builder.send_with_spinner_and_config(preflight_config))?;
-    }
-
-    Ok(())
+    execute_anchor_builders_with_config(
+        std::iter::once(anchor_builder),
+        rpc_client,
+        preflight_config,
+        simulate,
+        print_only,
+    )
 }
 
-pub fn execute_single<C: Deref<Target = dynsigner::DynSigner> + Clone>(
+pub fn execute_anchor_builder<C: Deref<Target = dynsigner::DynSigner> + Clone>(
     anchor_builder: RequestBuilder<C>,
     rpc_client: &RpcClient,
     skip_preflight: bool,
     simulate: bool,
     print_only: bool,
 ) -> anyhow::Result<()> {
-    execute_single_with_config(
-        anchor_builder,
+    execute_anchor_builders(
+        std::iter::once(anchor_builder),
         rpc_client,
-        RpcSendTransactionConfig {
-            skip_preflight,
-            ..RpcSendTransactionConfig::default()
-        },
+        skip_preflight,
         simulate,
         print_only,
     )
-}
-
-pub fn execute_single_tx_with_config<C: Deref<Target = dynsigner::DynSigner> + Clone>(
-    anchor_builder: RequestBuilder<C>,
-    rpc_client: &RpcClient,
-    preflight_config: RpcSendTransactionConfig,
-    simulate: bool,
-    print_only: bool,
-) -> anyhow::Result<()> {
-    warn_text_simulate_print_only(simulate, print_only);
-
-    if print_only {
-        print_base64(&anchor_builder.instructions()?)?;
-    }
-
-    if simulate {
-        log_simulation(&anchor_builder.simulate(rpc_client))?;
-    } else if !print_only {
-        // !simulate && !print_only
-        log_execution(&anchor_builder.send_with_spinner_and_config(preflight_config))?;
-    }
-
-    Ok(())
 }
 
 pub fn execute_transaction_builder(
