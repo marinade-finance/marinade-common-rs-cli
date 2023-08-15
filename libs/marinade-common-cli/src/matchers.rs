@@ -22,7 +22,7 @@ pub fn signer_from_path_or_default(
                 .map_err(|e| {
                     debug!("signer_from_path_or_default failed: location {}, keypair name: {}, matches: {:?}: {:?}",
                         location, name, matches, e);
-                    anyhow!("{}: {}", e, location)
+                    anyhow!("{}: arg name: {}, location: {}", e, name, location)
                 })?,
         ))
     } else {

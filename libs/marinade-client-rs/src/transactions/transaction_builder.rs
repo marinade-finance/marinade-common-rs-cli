@@ -82,6 +82,15 @@ impl TransactionBuilder {
     fn check_signers(&self, instruction: &Instruction) -> Result<(), TransactionBuildError> {
         for account in &instruction.accounts {
             if account.is_signer && !self.signature_builder.contains_key(&account.pubkey) {
+                debug!(
+                    "Unknown signer {} in signature builder {:?}, instruction accounts: {:?}",
+                    account.pubkey,
+                    self.signature_builder
+                        .signers
+                        .keys()
+                        .collect::<Vec<&Pubkey>>(),
+                    instruction.accounts
+                );
                 return Err(TransactionBuildError::UnknownSigner(account.pubkey));
             }
         }
@@ -152,11 +161,15 @@ impl TransactionBuilder {
         current.push(instruction);
         let transaction_candidate =
             Transaction::new_with_payer(&current.to_vec(), Some(&self.fee_payer));
-        if self.max_transaction_size > 0
-            && bincode::serialize(&transaction_candidate).unwrap().len() > self.max_transaction_size
-        {
+        let tx_size_candidate = bincode::serialize(&transaction_candidate).unwrap().len();
+        if self.max_transaction_size > 0 && tx_size_candidate > self.max_transaction_size {
             // Transaction is too big to add new instruction, remove the last one
             current.pop();
+            let transaction_current = bincode::serialize(&transaction_candidate).unwrap().len();
+            let tx_size_current = bincode::serialize(&transaction_current).unwrap().len();
+            debug!(
+                "add_instruction: too big transaction, tx size with added transaction: {}, original tx size: {},  max size: {}",
+                tx_size_candidate,  tx_size_current, self.max_transaction_size);
             return Err(anyhow!(TransactionBuildError::TooBigTransaction));
         }
 
