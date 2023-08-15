@@ -11,7 +11,7 @@ use solana_client::rpc_config::{RpcSendTransactionConfig, RpcSimulateTransaction
 use solana_client::rpc_request::{RpcError, RpcResponseErrorData};
 use solana_client::rpc_response::{RpcResult, RpcSimulateTransactionResult};
 use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
-use solana_sdk::signature::{Keypair, Signature};
+use solana_sdk::signature::Signature;
 use solana_sdk::signer::Signer;
 use std::ops::Deref;
 
@@ -54,12 +54,10 @@ pub trait TransactionSimulator {
 
 impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for RequestBuilder<'a, C> {
     fn simulate(&self, rpc_client: &RpcClient) -> RpcResult<RpcSimulateTransactionResult> {
-        let mut tx = self.transaction().map_err(|err| {
+        let tx = self.signed_transaction().map_err(|err| {
             error!("Cannot build transactions from builder: {:?}", err);
             RpcError::ForUser(format!("Request builder transaction error: {}", err))
         })?;
-        let recent_blockhash = rpc_client.get_latest_blockhash()?;
-        tx.partial_sign::<Vec<&Keypair>>(&vec![], recent_blockhash);
         rpc_client.simulate_transaction(&tx)
     }
 }
