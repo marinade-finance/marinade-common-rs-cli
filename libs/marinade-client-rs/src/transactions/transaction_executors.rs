@@ -55,7 +55,7 @@ pub trait TransactionSimulator {
 impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for RequestBuilder<'a, C> {
     fn simulate(&self, rpc_client: &RpcClient) -> RpcResult<RpcSimulateTransactionResult> {
         let mut tx = self.transaction().map_err(|err| {
-            debug!("Cannot build transactions from builder: {:?}", err);
+            error!("Cannot build transactions from builder: {:?}", err);
             RpcError::ForUser(format!("Request builder transaction error: {}", err))
         })?;
         let recent_blockhash = rpc_client.get_latest_blockhash()?;
@@ -297,7 +297,7 @@ pub fn execute_prepared_transaction(
     );
     let latest_hash = rpc_client_blockhash.get_latest_blockhash()?;
     let tx = prepared_transaction.sign(latest_hash).map_err(|e| {
-        debug!(
+        error!(
             "execute_prepared_transaction: error signing transaction with blockhash: {}: {:?}",
             latest_hash, e
         );
@@ -311,7 +311,7 @@ pub fn execute_prepared_transaction(
             preflight_config,
         )
         .map_err(|e|{
-            debug!("execute_prepared_transaction: error send_and_confirm transaction '{:?}', signers: '{:?}': {:?}",
+            error!("execute_prepared_transaction: error send_and_confirm transaction '{:?}', signers: '{:?}': {:?}",
                 prepared_transaction.transaction, prepared_transaction.signers.iter().map(|s| s.pubkey()), e);
             e.into()
         })
@@ -331,7 +331,7 @@ pub fn simulate_prepared_transaction(
     );
     let latest_hash = rpc_client_blockhash.get_latest_blockhash()?;
     let tx = prepared_transaction.sign(latest_hash).map_err(|e| {
-        debug!(
+        error!(
             "simulate_prepared_transaction: error signing transaction with blockhash: {}: {:?}",
             latest_hash, e
         );

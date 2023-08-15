@@ -2,7 +2,7 @@ use crate::transactions::prepared_transaction::PreparedTransaction;
 use crate::transactions::signature_builder::SignatureBuilder;
 use anchor_client::RequestBuilder;
 use anyhow::anyhow;
-use log::debug;
+use log::error;
 use once_cell::sync::OnceCell;
 use solana_sdk::{
     instruction::Instruction, packet::PACKET_DATA_SIZE, pubkey::Pubkey, signature::Signer,
@@ -82,7 +82,7 @@ impl TransactionBuilder {
     fn check_signers(&self, instruction: &Instruction) -> Result<(), TransactionBuildError> {
         for account in &instruction.accounts {
             if account.is_signer && !self.signature_builder.contains_key(&account.pubkey) {
-                debug!(
+                error!(
                     "Unknown signer {} in signature builder {:?}, instruction accounts: {:?}",
                     account.pubkey,
                     self.signature_builder
@@ -133,7 +133,7 @@ impl TransactionBuilder {
         request_builder: RequestBuilder<C>,
     ) -> anyhow::Result<&mut Self> {
         let instructions = request_builder.instructions().map_err(|e| {
-            debug!(
+            error!(
                 "add_instructions_from_builder: error building instructions: {:?}",
                 e
             );
@@ -167,7 +167,7 @@ impl TransactionBuilder {
             current.pop();
             let transaction_current = bincode::serialize(&transaction_candidate).unwrap().len();
             let tx_size_current = bincode::serialize(&transaction_current).unwrap().len();
-            debug!(
+            error!(
                 "add_instruction: too big transaction, tx size with added transaction: {}, original tx size: {},  max size: {}",
                 tx_size_candidate,  tx_size_current, self.max_transaction_size);
             return Err(anyhow!(TransactionBuildError::TooBigTransaction));

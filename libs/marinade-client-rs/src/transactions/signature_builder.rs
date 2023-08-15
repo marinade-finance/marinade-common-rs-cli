@@ -1,4 +1,4 @@
-use log::debug;
+use log::error;
 use solana_sdk::{
     pubkey::Pubkey,
     signature::{Keypair, Signature, Signer, SignerError},
@@ -47,7 +47,7 @@ impl SignatureBuilder {
             if let Some(keypair) = self.signers.get(&key) {
                 transaction.signatures[pos] = keypair.try_sign_message(&message)?;
             } else {
-                debug!("sign_transaction: not enough signers, expected key: {}, availabe keys in builder: {:?}",
+                error!("sign_transaction: not enough signers, expected key: {}, available keys in builder: {:?}",
                     key, self.signers.keys().collect::<Vec<&Pubkey>>());
                 return Err(SignerError::NotEnoughSigners);
             }
