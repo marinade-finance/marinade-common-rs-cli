@@ -346,6 +346,6 @@ fn warn_text_simulate_print_only(simulate: bool, print_only: bool) {
         warn!("Simulation mode: transactions will not be executed, only simulated.");
     }
     if print_only {
-        warn!("Print only mode: transactions will only be printed in base64 format.");
+        warn!("Print only mode: transactions will be printed in base64 format.");
     }
 }
