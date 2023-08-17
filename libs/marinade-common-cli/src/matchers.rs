@@ -26,6 +26,11 @@ pub fn signer_from_path_or_default(
                 })?,
         ))
     } else {
+        debug!(
+            "failed to load signer {} using default signer {}",
+            name,
+            default_signer.pubkey()
+        );
         Ok(default_signer.clone())
     }
 }
