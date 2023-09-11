@@ -210,7 +210,16 @@ pub fn execute_transaction_builder(
     }
 
     if simulate {
+        // expecting the instructions are dependent one to each other
+        // the result of the first can be used in the next one, for that simulation is run only for the fist bunch
+        let mut number_of_transactions = 0_u32;
         for mut prepared_transaction in transaction_builder.sequence_combined() {
+            number_of_transactions += 1;
+            if number_of_transactions > 1 {
+                // only the first bunch is simulated
+                // need to drain whole sequence to find the number of transaction bunches
+                continue;
+            }
             let simulation_config_default = RpcSimulateTransactionConfig::default();
             let simulation_commitment = if preflight_config.preflight_commitment.is_some() {
                 Some(CommitmentConfig {
@@ -232,6 +241,9 @@ pub fn execute_transaction_builder(
                 blockhash_commitment,
             );
             log_simulation(&simulation_result)?;
+        }
+        if number_of_transactions > 1 {
+            warn!("Simulation mode: only the first bunch of transactions was simulated, the rest was not simulated.");
         }
     } else {
         for mut prepared_transaction in transaction_builder.sequence_combined() {
