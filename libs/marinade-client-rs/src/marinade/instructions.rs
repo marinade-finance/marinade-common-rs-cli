@@ -592,7 +592,7 @@ pub fn stake_reserve<'a, C: Deref<Target = impl Signer> + Clone>(
     state: &State,
     validator_index: u32,
     validator_vote: Pubkey,
-    stake_account: Pubkey,
+    stake_account: &'a Arc<dyn Signer>,
     rent_payer: &'a Arc<dyn Signer>,
 ) -> anyhow::Result<RequestBuilder<'a, C>> {
     Ok(program
@@ -603,7 +603,7 @@ pub fn stake_reserve<'a, C: Deref<Target = impl Signer> + Clone>(
             stake_list: *state.stake_system.stake_list_address(),
             validator_vote,
             reserve_pda: State::find_reserve_address(&state_pubkey).0,
-            stake_account,
+            stake_account: stake_account.pubkey(),
             stake_deposit_authority: StakeSystem::find_stake_deposit_authority(&state_pubkey).0,
             rent_payer: rent_payer.pubkey(),
             clock: sysvar::clock::id(),
@@ -615,7 +615,8 @@ pub fn stake_reserve<'a, C: Deref<Target = impl Signer> + Clone>(
             stake_program: stake::program::ID,
         })
         .args(marinade_finance_instruction::StakeReserve { validator_index })
-        .signer(rent_payer.as_ref()))
+        .signer(rent_payer.as_ref())
+        .signer(stake_account.as_ref()))
 }
 
 pub fn update_active<'a, C: Deref<Target = impl Signer> + Clone>(

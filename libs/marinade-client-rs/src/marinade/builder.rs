@@ -161,7 +161,7 @@ pub trait MarinadeRequestBuilder<'a, C> {
         &'a self,
         validator_index: u32,
         validator_vote: Pubkey,
-        stake_account: Pubkey,
+        stake_account: &'a Arc<dyn Signer>,
         rent_payer: &'a Arc<dyn Signer>,
     ) -> anyhow::Result<RequestBuilder<C>>;
 
@@ -547,7 +547,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
         &'a self,
         validator_index: u32,
         validator_vote: Pubkey,
-        stake_account: Pubkey,
+        stake_account: &'a Arc<dyn Signer>,
         rent_payer: &'a Arc<dyn Signer>,
     ) -> anyhow::Result<RequestBuilder<C>> {
         stake_reserve(
