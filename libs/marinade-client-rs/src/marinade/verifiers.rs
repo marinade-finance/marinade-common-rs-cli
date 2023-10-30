@@ -19,9 +19,9 @@ pub fn verify_manager_authority(
 
 pub fn verify_admin_authority(state: &State, admin_authority: Pubkey) -> anyhow::Result<()> {
     if state.admin_authority != admin_authority {
-        bail!("Admin-authority {} to sign the transaction mismatches Marinade state admin authority {}",
+        bail!("Admin-authority {} signing the transaction mismatches Marinade state admin authority: {}",
                 admin_authority,
-                state.validator_system.manager_authority
+                state.admin_authority
             );
     }
     Ok(())
