@@ -29,3 +29,29 @@ impl Signer for DynSigner {
         self.0.is_interactive()
     }
 }
+
+
+
+/// Keypair or Pubkey depending, could be one of that based on parameters of the CLI command.
+/// For --print-only we want to permit to pass only pubkey not the keypair in real.
+#[derive(Debug, Clone)]
+pub enum PubkeyOrSigner {
+    Pubkey(Pubkey),
+    Signer(Arc<dyn Signer>),
+}
+
+impl PubkeyOrSigner {
+    pub fn pubkey(&self) -> Pubkey {
+        match self {
+            PubkeyOrSigner::Pubkey(pubkey) => *pubkey,
+            PubkeyOrSigner::Signer(keypair) => keypair.pubkey(),
+        }
+    }
+
+    pub fn try_as_signer(&self) -> Option<Arc<dyn Signer>> {
+        match self {
+            PubkeyOrSigner::Pubkey(_) => None,
+            PubkeyOrSigner::Signer(keypair) => Some(keypair.clone()),
+        }
+    }
+}
