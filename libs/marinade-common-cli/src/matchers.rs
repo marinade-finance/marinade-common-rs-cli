@@ -1,5 +1,6 @@
 use anyhow::anyhow;
 use clap::ArgMatches;
+use dynsigner::PubkeyOrSigner;
 use log::debug;
 use solana_clap_utils::input_parsers::pubkey_of_signer;
 use solana_clap_utils::keypair::signer_from_path;
@@ -7,7 +8,6 @@ use solana_remote_wallet::remote_wallet::RemoteWalletManager;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
 use std::{str::FromStr, sync::Arc};
-use dynsigner::PubkeyOrSigner;
 
 // Getting signer from the matched name as the keypair path argument, or returns the default signer
 pub fn signer_from_path_or_default(
