@@ -7,49 +7,7 @@ use solana_remote_wallet::remote_wallet::RemoteWalletManager;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
 use std::{str::FromStr, sync::Arc};
-
-/// Keypair or Pubkey depending, could be one of that
-/// based on parameters of the CLI command. For --print-only
-/// we want to permit to pass only pubkey not the keypair in real.
-#[derive(Debug)]
-pub struct PubkeyOrSigner {
-    pubkey: Option<Pubkey>,
-    signer: Option<Arc<dyn Signer>>,
-}
-
-impl PubkeyOrSigner {
-    pub fn new_as_pubkey(pubkey: Pubkey) -> Self {
-        Self {
-            signer: None,
-            pubkey: Some(pubkey),
-        }
-    }
-
-    pub fn new_as_signer(signer: Arc<dyn Signer>) -> Self {
-        Self {
-            signer: Some(signer),
-            pubkey: None,
-        }
-    }
-
-    pub fn is_signer(&self) -> bool {
-        self.signer.is_some()
-    }
-
-    pub fn signer(&self) -> Option<Arc<dyn Signer>> {
-        self.signer.clone()
-    }
-
-    pub fn pubkey(&self) -> Pubkey {
-        if let Some(signer) = &self.signer {
-            return signer.pubkey();
-        } else if let Some(pubkey) = &self.pubkey {
-            return pubkey.clone();
-        } else {
-            panic!("PubkeyOrSigner is not initialized");
-        }
-    }
-}
+use dynsigner::PubkeyOrSigner;
 
 // Getting signer from the matched name as the keypair path argument, or returns the default signer
 pub fn signer_from_path_or_default(
@@ -58,37 +16,23 @@ pub fn signer_from_path_or_default(
     default_signer: &Arc<dyn Signer>,
     wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
 ) -> anyhow::Result<Arc<dyn Signer>> {
-    match signer_from_path_or_none(matches, name, wallet_manager)? {
-        Some(signer) => Ok(signer),
-        None => {
-            debug!(
-                "failed to load signer {} using default signer {}",
-                name,
-                default_signer.pubkey()
-            );
-            Ok(default_signer.clone())
-        }
+    if let Some(location) = matches.value_of(name) {
+        Ok(Arc::from(
+            signer_from_path(matches, location, name, wallet_manager)
+                .map_err(|e| {
+                    debug!("signer_from_path_or_default failed: location {}, keypair name: {}, matches: {:?}: {:?}",
+                        location, name, matches, e);
+                    anyhow!("{}: arg name: {}, location: {}", e, name, location)
+                })?,
+        ))
+    } else {
+        debug!(
+            "failed to load signer {} using default signer {}",
+            name,
+            default_signer.pubkey()
+        );
+        Ok(default_signer.clone())
     }
-}
-
-// Getting signer from the matched name as the keypair path argument, when not found returns None
-pub fn signer_from_path_or_none(
-    matches: &ArgMatches<'_>,
-    name: &str,
-    wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
-) -> anyhow::Result<Option<Arc<dyn Signer>>> {
-    matches.value_of(name).map_or(Ok(None), |matched_value| {
-        Ok(Some(Arc::from(
-            signer_from_path(matches, matched_value, name, wallet_manager).map_err(|err| {
-                anyhow!(
-                    "Failed to load signer from path of parameter {}/{}: {}",
-                    name,
-                    matched_value,
-                    err
-                )
-            })?,
-        )))
-    })
 }
 
 /// Getting pubkey from the matched name or load it from the signer data, when not provided, return an error
@@ -176,16 +120,26 @@ pub fn pubkey_or_signer(
     matches: &ArgMatches<'_>,
     name: &str,
     wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
-) -> anyhow::Result<PubkeyOrSigner> {
-    if let Ok(Some(signer)) = signer_from_path_or_none(matches, name, wallet_manager) {
-        Ok(PubkeyOrSigner::new_as_signer(signer))
-    } else {
-        Ok(PubkeyOrSigner::new_as_pubkey(pubkey_or_of_signer(
-            matches,
-            name,
-            wallet_manager,
-        )?))
-    }
+) -> anyhow::Result<Option<PubkeyOrSigner>> {
+    // when the argument provides no value then returns None
+    // when the argument provides a value then we parse and parsing error is returned as an error, not as None
+    matches.value_of(name).map_or(Ok(None), |matched_value| {
+        let parsed_signer = signer_from_path(matches, matched_value, name, wallet_manager);
+        match parsed_signer {
+            Ok(signer) => Ok(Some(PubkeyOrSigner::Signer(Arc::from(signer)))),
+            Err(_) => {
+                let parsed_pubkey = Pubkey::from_str(matched_value).map_err(|e| {
+                    anyhow!(
+                        "Failed to parse argument {:?}/{} as pubkey: {}",
+                        matches,
+                        name,
+                        e
+                    )
+                })?;
+                Ok(Some(PubkeyOrSigner::Pubkey(parsed_pubkey)))
+            }
+        }
+    })
 }
 
 pub fn match_u32(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<u32> {
