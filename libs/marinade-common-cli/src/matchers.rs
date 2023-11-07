@@ -1,13 +1,55 @@
 use anyhow::anyhow;
 use clap::ArgMatches;
+use log::debug;
 use solana_clap_utils::input_parsers::pubkey_of_signer;
 use solana_clap_utils::keypair::signer_from_path;
 use solana_remote_wallet::remote_wallet::RemoteWalletManager;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
-
-use log::debug;
 use std::{str::FromStr, sync::Arc};
+
+/// Keypair or Pubkey depending, could be one of that
+/// based on parameters of the CLI command. For --print-only
+/// we want to permit to pass only pubkey not the keypair in real.
+#[derive(Debug)]
+pub struct PubkeyOrSigner {
+    pubkey: Option<Pubkey>,
+    signer: Option<Arc<dyn Signer>>,
+}
+
+impl PubkeyOrSigner {
+    pub fn new_as_pubkey(pubkey: Pubkey) -> Self {
+        Self {
+            signer: None,
+            pubkey: Some(pubkey),
+        }
+    }
+
+    pub fn new_as_signer(signer: Arc<dyn Signer>) -> Self {
+        Self {
+            signer: Some(signer),
+            pubkey: None,
+        }
+    }
+
+    pub fn is_signer(&self) -> bool {
+        self.signer.is_some()
+    }
+
+    pub fn signer(&self) -> Option<Arc<dyn Signer>> {
+        self.signer.clone()
+    }
+
+    pub fn pubkey(&self) -> Pubkey {
+        if let Some(signer) = &self.signer {
+            return signer.pubkey();
+        } else if let Some(pubkey) = &self.pubkey {
+            return pubkey.clone();
+        } else {
+            panic!("PubkeyOrSigner is not initialized");
+        }
+    }
+}
 
 // Getting signer from the matched name as the keypair path argument, or returns the default signer
 pub fn signer_from_path_or_default(
@@ -16,23 +58,37 @@ pub fn signer_from_path_or_default(
     default_signer: &Arc<dyn Signer>,
     wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
 ) -> anyhow::Result<Arc<dyn Signer>> {
-    if let Some(location) = matches.value_of(name) {
-        Ok(Arc::from(
-            signer_from_path(matches, location, name, wallet_manager)
-                .map_err(|e| {
-                    debug!("signer_from_path_or_default failed: location {}, keypair name: {}, matches: {:?}: {:?}",
-                        location, name, matches, e);
-                    anyhow!("{}: arg name: {}, location: {}", e, name, location)
-                })?,
-        ))
-    } else {
-        debug!(
-            "failed to load signer {} using default signer {}",
-            name,
-            default_signer.pubkey()
-        );
-        Ok(default_signer.clone())
+    match signer_from_path_or_none(matches, name, wallet_manager)? {
+        Some(signer) => Ok(signer),
+        None => {
+            debug!(
+                "failed to load signer {} using default signer {}",
+                name,
+                default_signer.pubkey()
+            );
+            Ok(default_signer.clone())
+        }
     }
+}
+
+// Getting signer from the matched name as the keypair path argument, when not found returns None
+pub fn signer_from_path_or_none(
+    matches: &ArgMatches<'_>,
+    name: &str,
+    wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
+) -> anyhow::Result<Option<Arc<dyn Signer>>> {
+    matches.value_of(name).map_or(Ok(None), |matched_value| {
+        Ok(Some(Arc::from(
+            signer_from_path(matches, matched_value, name, wallet_manager).map_err(|err| {
+                anyhow!(
+                    "Failed to load signer from path of parameter {}/{}: {}",
+                    name,
+                    matched_value,
+                    err
+                )
+            })?,
+        )))
+    })
 }
 
 /// Getting pubkey from the matched name or load it from the signer data, when not provided, return an error
@@ -89,6 +145,9 @@ pub fn process_multiple_pubkeys(
     Ok(value_pubkeys)
 }
 
+/// Difference between this and 'pubkey_or_from_signer' method is that this method takes just the `value_or_path`
+/// parameter and tries to find it as a pubkey. On the other hand the `pubkey_or_from_signer` matches the name of
+/// argument and the value of argument first and then it search for pubkey from the value.
 fn pubkey_or_from_path(
     matches: &ArgMatches<'_>,
     name: &str,
@@ -108,6 +167,24 @@ fn pubkey_or_from_path(
                 )
             })?;
         Ok(signer.pubkey())
+    }
+}
+
+/// Returns keypair if the parameter can be parsed as path to a file with keypair,
+/// otherwise it parse it as a pubkey. Otherwise it fails.
+pub fn pubkey_or_signer(
+    matches: &ArgMatches<'_>,
+    name: &str,
+    wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
+) -> anyhow::Result<PubkeyOrSigner> {
+    if let Ok(Some(signer)) = signer_from_path_or_none(matches, name, wallet_manager) {
+        Ok(PubkeyOrSigner::new_as_signer(signer))
+    } else {
+        Ok(PubkeyOrSigner::new_as_pubkey(pubkey_or_of_signer(
+            matches,
+            name,
+            wallet_manager,
+        )?))
     }
 }
 
