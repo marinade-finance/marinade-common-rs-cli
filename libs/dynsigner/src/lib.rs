@@ -30,8 +30,6 @@ impl Signer for DynSigner {
     }
 }
 
-
-
 /// Keypair or Pubkey depending, could be one of that based on parameters of the CLI command.
 /// For --print-only we want to permit to pass only pubkey not the keypair in real.
 #[derive(Debug, Clone)]
@@ -52,6 +50,13 @@ impl PubkeyOrSigner {
         match self {
             PubkeyOrSigner::Pubkey(_) => None,
             PubkeyOrSigner::Signer(keypair) => Some(keypair.clone()),
+        }
+    }
+
+    pub fn use_signer(&self) -> Option<&Arc<dyn Signer>> {
+        match self {
+            PubkeyOrSigner::Pubkey(_) => None,
+            PubkeyOrSigner::Signer(keypair) => Some(keypair),
         }
     }
 }
