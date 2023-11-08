@@ -55,9 +55,9 @@ pub fn pubkey_or_of_signer_optional(
     wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
 ) -> anyhow::Result<Option<Pubkey>> {
     matches.value_of(name).map_or(Ok(None), |matched_value| {
-        let pubkey = if let Ok(pubkey) = Pubkey::from_str(matched_value) {
-            pubkey
-        } else {
+        let pubkey = Pubkey::from_str(matched_value).or_else(|e| {
+            debug!("pubkey_or_of_signer_optional failed to load as pubkey {:?}, trying pubkey of signer: {:?}",
+                matched_value, e);
             pubkey_of_signer(matches, name, wallet_manager)
                 .map_err(|err| anyhow!("{}: {}", err, matched_value))?
                 .ok_or_else(|| {
@@ -66,8 +66,8 @@ pub fn pubkey_or_of_signer_optional(
                         name,
                         matched_value
                     )
-                })?
-        };
+                })
+        })?;
         Ok(Some(pubkey))
     })
 }
@@ -98,9 +98,11 @@ fn pubkey_or_from_path(
     value_or_path: &str,
     wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
 ) -> anyhow::Result<Pubkey> {
-    if let Ok(pubkey) = Pubkey::from_str(value_or_path) {
-        Ok(pubkey)
-    } else {
+    Pubkey::from_str(value_or_path).or_else(|e| {
+        debug!(
+            "pubkey_or_from_path failed to load as pubkey {:?}, trying signer: {:?}",
+            value_or_path, e
+        );
         let signer =
             signer_from_path(matches, value_or_path, name, wallet_manager).map_err(|err| {
                 anyhow!(
@@ -111,7 +113,7 @@ fn pubkey_or_from_path(
                 )
             })?;
         Ok(signer.pubkey())
-    }
+    })
 }
 
 /// Returns keypair if the parameter can be parsed as path to a file with keypair,
