@@ -60,3 +60,36 @@ impl PubkeyOrSigner {
         }
     }
 }
+
+impl From<PubkeyOrSigner> for Arc<dyn Signer> {
+    fn from(value: PubkeyOrSigner) -> Self {
+        match value {
+            PubkeyOrSigner::Pubkey(_) => panic!("Cannot convert PubkeyOrSigner::Pubkey to Signer"),
+            PubkeyOrSigner::Signer(keypair) => keypair,
+        }
+    }
+}
+
+impl Into<PubkeyOrSigner> for Arc<dyn Signer> {
+    fn into(self) -> PubkeyOrSigner {
+        PubkeyOrSigner::Signer(self)
+    }
+}
+
+impl Into<PubkeyOrSigner> for &Arc<dyn Signer> {
+    fn into(self) -> PubkeyOrSigner {
+        PubkeyOrSigner::Signer(self.clone())
+    }
+}
+
+impl From<PubkeyOrSigner> for Pubkey {
+    fn from(value: PubkeyOrSigner) -> Self {
+        value.pubkey()
+    }
+}
+
+impl Into<PubkeyOrSigner> for Pubkey {
+    fn into(self) -> PubkeyOrSigner {
+        PubkeyOrSigner::Pubkey(self)
+    }
+}
