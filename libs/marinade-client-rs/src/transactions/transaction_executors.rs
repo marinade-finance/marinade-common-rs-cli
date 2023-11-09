@@ -8,11 +8,13 @@ use solana_client::client_error::ClientError as SolanaClientError;
 use solana_client::client_error::ClientErrorKind;
 use solana_client::rpc_client::RpcClient;
 use solana_client::rpc_config::{RpcSendTransactionConfig, RpcSimulateTransactionConfig};
+use solana_client::rpc_request::RpcError::ForUser;
 use solana_client::rpc_request::{RpcError, RpcResponseErrorData};
 use solana_client::rpc_response::{RpcResult, RpcSimulateTransactionResult};
 use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
 use solana_sdk::signature::Signature;
 use solana_sdk::signer::Signer;
+use solana_sdk::transaction::TransactionError;
 use std::ops::Deref;
 
 pub fn log_execution(
@@ -55,8 +57,11 @@ pub trait TransactionSimulator {
 impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for RequestBuilder<'a, C> {
     fn simulate(&self, rpc_client: &RpcClient) -> RpcResult<RpcSimulateTransactionResult> {
         let tx = self.signed_transaction().map_err(|err| {
-            error!("Cannot build transactions from builder: {:?}", err);
-            RpcError::ForUser(format!("Request builder transaction error: {}", err))
+            error!(
+                "RequestBuilder#simulate: cannot build transactions from builder: {:?}",
+                err
+            );
+            ForUser(format!("Building transaction error: {}", err))
         })?;
         rpc_client.simulate_transaction(&tx)
     }
@@ -202,6 +207,7 @@ pub fn execute_transaction_builder(
     blockhash_commitment: CommitmentLevel,
     simulate: bool,
     print_only: bool,
+    blockhash_failure_retries: Option<u16>,
 ) -> anyhow::Result<()> {
     warn_text_simulate_print_only(simulate, print_only);
 
@@ -252,6 +258,7 @@ pub fn execute_transaction_builder(
                 rpc_client,
                 preflight_config,
                 blockhash_commitment,
+                blockhash_failure_retries,
             );
             log_execution(&execution_result)?;
         }
@@ -265,6 +272,7 @@ pub fn execute_prepared_transaction(
     rpc_client: &RpcClient,
     preflight_config: RpcSendTransactionConfig,
     blockhash_commitment: CommitmentLevel,
+    blockhash_failure_retries: Option<u16>,
 ) -> Result<Signature, anchor_client::ClientError> {
     let rpc_client_blockhash = RpcClient::new_with_commitment(
         rpc_client.url(),
@@ -272,26 +280,104 @@ pub fn execute_prepared_transaction(
             commitment: blockhash_commitment,
         },
     );
-    let latest_hash = rpc_client_blockhash.get_latest_blockhash()?;
-    let tx = prepared_transaction.sign(latest_hash).map_err(|e| {
-        error!(
-            "execute_prepared_transaction: error signing transaction with blockhash: {}: {:?}",
-            latest_hash, e
-        );
-        anchor_client::ClientError::SolanaClientError(SolanaClientError::from(e))
-    })?;
+    send_transaction(
+        prepared_transaction,
+        &rpc_client_blockhash,
+        preflight_config,
+        blockhash_failure_retries,
+    )
+}
 
-    rpc_client
-        .send_and_confirm_transaction_with_spinner_and_config(
+/// Will retry for 'Blockhash not found' error as it's usually only a temporary RPC error
+fn send_transaction(
+    prepared_transaction: &mut PreparedTransaction,
+    rpc_client: &RpcClient,
+    preflight_config: RpcSendTransactionConfig,
+    blockhash_failure_retries: Option<u16>,
+) -> Result<Signature, anchor_client::ClientError> {
+    let mut retry_count: u16 = 0;
+    let blockhash_failure_retries = blockhash_failure_retries.unwrap_or(0);
+    let mut last_error = anchor_client::ClientError::SolanaClientError(SolanaClientError::from(
+        RpcError::RpcRequestError("send_transaction: unknown retry failure".to_string()),
+    ));
+    while retry_count <= blockhash_failure_retries {
+        let latest_hash = rpc_client.get_latest_blockhash()?;
+        let tx = prepared_transaction
+            .sign(latest_hash)
+            .map_err(|signed_err| {
+                error!(
+                    "send_transaction: error signing transaction with blockhash: {}: {:?}",
+                    latest_hash, signed_err
+                );
+                anchor_client::ClientError::SolanaClientError(SolanaClientError::from(signed_err))
+            })?;
+
+        let send_result = rpc_client.send_and_confirm_transaction_with_spinner_and_config(
             tx,
             rpc_client.commitment(),
             preflight_config,
-        )
-        .map_err(|e|{
-            error!("execute_prepared_transaction: error send_and_confirm transaction '{:?}', signers: '{:?}': {:?}",
-                prepared_transaction.transaction, prepared_transaction.signers.iter().map(|s| s.pubkey()), e);
-            e.into()
-        })
+        );
+        match send_result {
+            Ok(signature) => {
+                return Ok(signature);
+            }
+            Err(err) => {
+                last_error =
+                    anchor_client::ClientError::SolanaClientError(SolanaClientError::from(err));
+                if let anchor_client::ClientError::SolanaClientError(ce) = &last_error {
+                    let to_check_err: Option<&TransactionError> = match ce.kind() {
+                        ClientErrorKind::RpcError(RpcError::RpcResponseError {
+                            data:
+                                RpcResponseErrorData::SendTransactionPreflightFailure(
+                                    RpcSimulateTransactionResult {
+                                        err: transaction_error,
+                                        logs,
+                                        accounts,
+                                        ..
+                                    },
+                                ),
+                            ..
+                        }) => {
+                            debug!(
+                                "Failed to send transaction: {:?}, logs: {:?}, accounts: {:?}",
+                                transaction_error, logs, accounts
+                            );
+                            transaction_error.as_ref()
+                        }
+                        ClientErrorKind::RpcError(ForUser(message)) => {
+                            // unable to confirm transaction. This can happen in situations such as transaction expiration and insufficient fee-payer funds
+                            if message
+                                .to_lowercase()
+                                .contains("unable to confirm transaction")
+                            {
+                                Some(&TransactionError::BlockhashNotFound)
+                            } else {
+                                None
+                            }
+                        }
+                        ClientErrorKind::TransactionError(te) => Some(te),
+                        _ => None,
+                    };
+
+                    if let Some(tx_err) = to_check_err {
+                        if *tx_err == TransactionError::BlockhashNotFound {
+                            debug!(
+                                "Retried attempt #{}/{} to send transaction with error: {:?} ",
+                                retry_count, blockhash_failure_retries, tx_err
+                            );
+                            // retry
+                            retry_count += 1;
+                            continue;
+                        }
+                    }
+                    // No Error to retry, let's break the loop and use the last error
+                    break;
+                }
+            }
+        }
+    }
+    error!("Transaction ERR send_transaction: {:?}", last_error);
+    Err(last_error)
 }
 
 pub fn simulate_prepared_transaction(
@@ -312,7 +398,7 @@ pub fn simulate_prepared_transaction(
             "simulate_prepared_transaction: error signing transaction with blockhash: {}: {:?}",
             latest_hash, e
         );
-        RpcError::ForUser(format!("Signature error: {}", e))
+        ForUser(format!("Signing transaction error: {}", e))
     })?;
 
     rpc_client.simulate_transaction_with_config(tx, simulate_config)
