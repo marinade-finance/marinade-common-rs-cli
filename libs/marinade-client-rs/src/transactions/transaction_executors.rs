@@ -13,6 +13,7 @@ use solana_client::rpc_response::{RpcResult, RpcSimulateTransactionResult};
 use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
 use solana_sdk::signature::Signature;
 use solana_sdk::signer::Signer;
+use solana_sdk::transaction::TransactionError;
 use std::ops::Deref;
 
 pub fn log_execution(
@@ -272,26 +273,93 @@ pub fn execute_prepared_transaction(
             commitment: blockhash_commitment,
         },
     );
-    let latest_hash = rpc_client_blockhash.get_latest_blockhash()?;
-    let tx = prepared_transaction.sign(latest_hash).map_err(|e| {
-        error!(
-            "execute_prepared_transaction: error signing transaction with blockhash: {}: {:?}",
-            latest_hash, e
-        );
-        anchor_client::ClientError::SolanaClientError(SolanaClientError::from(e))
-    })?;
+    send_transaction(
+        prepared_transaction,
+        &rpc_client_blockhash,
+        preflight_config,
+        3,
+    )
+}
 
-    rpc_client
-        .send_and_confirm_transaction_with_spinner_and_config(
+/// Will retry for 'Blockhash not found' error as it's usually only an temporary RPC error
+fn send_transaction(
+    prepared_transaction: &mut PreparedTransaction,
+    rpc_client: &RpcClient,
+    preflight_config: RpcSendTransactionConfig,
+    blockhash_failure_retries: u16,
+) -> Result<Signature, anchor_client::ClientError> {
+    let mut retry_count: u16 = 1;
+    let mut last_error = anchor_client::ClientError::SolanaClientError(SolanaClientError::from(
+        RpcError::RpcRequestError("Blockhash not found".to_string()),
+    ));
+    while retry_count <= blockhash_failure_retries {
+        let latest_hash = rpc_client.get_latest_blockhash()?;
+        let tx = prepared_transaction
+            .sign(latest_hash)
+            .map_err(|signed_err| {
+                error!(
+                "execute_prepared_transaction: error signing transaction with blockhash: {}: {:?}",
+                latest_hash, signed_err
+            );
+                anchor_client::ClientError::SolanaClientError(SolanaClientError::from(signed_err))
+            })?;
+
+        let send_result = rpc_client.send_and_confirm_transaction_with_spinner_and_config(
             tx,
             rpc_client.commitment(),
             preflight_config,
-        )
-        .map_err(|e|{
-            error!("execute_prepared_transaction: error send_and_confirm transaction '{:?}', signers: '{:?}': {:?}",
-                prepared_transaction.transaction, prepared_transaction.signers.iter().map(|s| s.pubkey()), e);
-            e.into()
-        })
+        );
+        match send_result {
+            Ok(signature) => {
+                return Ok(signature);
+            }
+            Err(err) => {
+                last_error =
+                    anchor_client::ClientError::SolanaClientError(SolanaClientError::from(err));
+                if let anchor_client::ClientError::SolanaClientError(ce) = &last_error {
+                    let mut found_transaction_error: Option<&TransactionError> = None;
+                    if let ClientErrorKind::RpcError(RpcError::RpcResponseError {
+                        data:
+                            RpcResponseErrorData::SendTransactionPreflightFailure(
+                                RpcSimulateTransactionResult {
+                                    err: transaction_error,
+                                    logs,
+                                    accounts,
+                                    ..
+                                },
+                            ),
+                        ..
+                    }) = ce.kind()
+                    {
+                        debug!(
+                            "Failed to send transaction: {:?}, logs: {:?}, accounts: {:?}",
+                            transaction_error, logs, accounts
+                        );
+                        if let Some(te) = transaction_error {
+                            found_transaction_error = Some(te);
+                        };
+                    }
+                    if let ClientErrorKind::TransactionError(te) = ce.kind() {
+                        found_transaction_error = Some(te);
+                    }
+                    if let Some(te) = found_transaction_error {
+                        if *te == TransactionError::BlockhashNotFound {
+                            debug!(
+                                "Retried attempt #{}/{} to send transaction: {:?} ",
+                                retry_count, blockhash_failure_retries, te
+                            );
+                            // retry
+                            retry_count = retry_count + 1;
+                            continue;
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    }
+    error!("Transaction ERR (send_transaction) {:?}", last_error);
+    Err(last_error)
 }
 
 pub fn simulate_prepared_transaction(
