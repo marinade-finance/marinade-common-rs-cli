@@ -712,3 +712,20 @@ pub fn emergency_resume<'a, C: Deref<Target = impl Signer> + Clone>(
         })
         .args(marinade_finance_instruction::Resume {}))
 }
+
+pub fn finalize_delinquent_upgrade<'a, C: Deref<Target = impl Signer> + Clone>(
+    program: &'a Program<C>,
+    state_pubkey: &Pubkey,
+    state: &State,
+    max_validators: u32,
+) -> anyhow::Result<RequestBuilder<'a, C>> {
+    Ok(program
+        .request()
+        .accounts(marinade_finance_accounts::FinalizeDelinquentUpgrade {
+            state: state_pubkey.clone(),
+            validator_list: *state.validator_system.validator_list_address(),
+        })
+        .args(marinade_finance_instruction::FinalizeDelinquentUpgrade {
+            max_validators,
+        }))
+}
