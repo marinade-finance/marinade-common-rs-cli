@@ -180,6 +180,7 @@ pub trait MarinadeRequestBuilder<'a, C> {
         &'a self,
         stake_account: Pubkey,
         stake_index: u32,
+        validator_index: u32,
     ) -> anyhow::Result<RequestBuilder<C>>;
 
     fn order_unstake(
@@ -661,6 +662,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
         &'a self,
         stake_account: Pubkey,
         stake_index: u32,
+        validator_index: u32,
     ) -> anyhow::Result<RequestBuilder<C>> {
         update_deactivated(
             &self.program,
@@ -668,6 +670,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             &self.state,
             &stake_account,
             stake_index,
+            validator_index,
         )
     }
 
