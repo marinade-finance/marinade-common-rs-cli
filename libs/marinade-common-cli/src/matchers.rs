@@ -144,9 +144,29 @@ pub fn pubkey_or_signer(
     })
 }
 
+pub fn match_u16(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<u16> {
+    crate::matchers::match_u16_option(matches, name)?
+        .ok_or_else(|| anyhow::Error::msg(format!("match_u16: argument '{}' missing", name)))
+}
+
+pub fn match_u16_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<Option<u16>> {
+    if let Some(value) = matches.value_of(name) {
+        let value = u16::from_str(value).map_err(|e| {
+            anyhow!(
+                "Failed to convert argument {} of value {} to u16: {:?}",
+                name,
+                value,
+                e
+            )
+        })?;
+        return Ok(Some(value));
+    }
+    Ok(None)
+}
+
 pub fn match_u32(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<u32> {
     match_u32_option(matches, name)?
-        .ok_or_else(|| anyhow::Error::msg(format!("argument '{}' missing", name)))
+        .ok_or_else(|| anyhow::Error::msg(format!("match_u32: argument '{}' missing", name)))
 }
 
 pub fn match_u32_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<Option<u32>> {
@@ -166,7 +186,7 @@ pub fn match_u32_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<
 
 pub fn match_u64(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<u64> {
     match_u64_option(matches, name)?
-        .ok_or_else(|| anyhow::Error::msg(format!("argument '{}' missing", name)))
+        .ok_or_else(|| anyhow::Error::msg(format!("match_u64: argument '{}' missing", name)))
 }
 
 pub fn match_u64_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<Option<u64>> {
@@ -186,7 +206,7 @@ pub fn match_u64_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<
 
 pub fn match_f64(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<f64> {
     match_f64_option(matches, name)?
-        .ok_or_else(|| anyhow::Error::msg(format!("argument '{}' missing", name)))
+        .ok_or_else(|| anyhow::Error::msg(format!("match_f64: argument '{}' missing", name)))
 }
 
 pub fn match_f64_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<Option<f64>> {
