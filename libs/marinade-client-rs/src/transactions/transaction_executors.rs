@@ -253,7 +253,7 @@ pub fn execute_transaction_builder(
         }
     } else {
         for mut prepared_transaction in transaction_builder.sequence_combined() {
-            let execution_result = execute_prepared_transaction(
+            let execution_result = execute_prepared_transaction_blockhash_retry(
                 &mut prepared_transaction,
                 rpc_client,
                 preflight_config,
@@ -267,29 +267,28 @@ pub fn execute_transaction_builder(
     Ok(())
 }
 
-pub fn execute_prepared_transaction(
+fn execute_prepared_transaction_internal(
     prepared_transaction: &mut PreparedTransaction,
     rpc_client: &RpcClient,
     preflight_config: RpcSendTransactionConfig,
-    blockhash_commitment: CommitmentLevel,
-    blockhash_failure_retries: Option<u16>,
-) -> Result<Signature, anchor_client::ClientError> {
-    let rpc_client_blockhash = RpcClient::new_with_commitment(
-        rpc_client.url(),
-        CommitmentConfig {
-            commitment: blockhash_commitment,
-        },
-    );
-    send_transaction(
-        prepared_transaction,
-        &rpc_client_blockhash,
+) -> Result<Signature, solana_client::client_error::ClientError> {
+    let latest_hash = rpc_client.get_latest_blockhash()?;
+    let tx = prepared_transaction.sign(latest_hash).map_err(|e| {
+        error!(
+            "execute_prepared_transaction: error signing transaction with blockhash: {}: {:?}",
+            latest_hash, e
+        );
+        SolanaClientError::from(e)
+    })?;
+
+    rpc_client.send_and_confirm_transaction_with_spinner_and_config(
+        tx,
+        rpc_client.commitment(),
         preflight_config,
-        blockhash_failure_retries,
     )
 }
 
-/// Will retry for 'Blockhash not found' error as it's usually only a temporary RPC error
-fn send_transaction(
+fn execute_prepared_transaction_retry_blockhash_internal(
     prepared_transaction: &mut PreparedTransaction,
     rpc_client: &RpcClient,
     preflight_config: RpcSendTransactionConfig,
@@ -301,20 +300,9 @@ fn send_transaction(
         RpcError::RpcRequestError("send_transaction: unknown retry failure".to_string()),
     ));
     while retry_count <= blockhash_failure_retries {
-        let latest_hash = rpc_client.get_latest_blockhash()?;
-        let tx = prepared_transaction
-            .sign(latest_hash)
-            .map_err(|signed_err| {
-                error!(
-                    "send_transaction: error signing transaction with blockhash: {}: {:?}",
-                    latest_hash, signed_err
-                );
-                anchor_client::ClientError::SolanaClientError(SolanaClientError::from(signed_err))
-            })?;
-
-        let send_result = rpc_client.send_and_confirm_transaction_with_spinner_and_config(
-            tx,
-            rpc_client.commitment(),
+        let send_result = execute_prepared_transaction_internal(
+            prepared_transaction,
+            rpc_client,
             preflight_config,
         );
         match send_result {
@@ -378,6 +366,50 @@ fn send_transaction(
     }
     error!("Transaction ERR send_transaction: {:?}", last_error);
     Err(last_error)
+}
+
+pub fn execute_prepared_transaction(
+    prepared_transaction: &mut PreparedTransaction,
+    rpc_client: &RpcClient,
+    preflight_config: RpcSendTransactionConfig,
+    blockhash_commitment: CommitmentLevel,
+) -> Result<Signature, anchor_client::ClientError> {
+    let rpc_client_blockhash = RpcClient::new_with_commitment(
+        rpc_client.url(),
+        CommitmentConfig {
+            commitment: blockhash_commitment,
+        },
+    );
+    execute_prepared_transaction_internal(
+        prepared_transaction,
+        &rpc_client_blockhash,
+        preflight_config,
+    ).map_err(|e|{
+        error!("execute_prepared_transaction: error send_and_confirm transaction '{:?}', signers: '{:?}': {:?}",
+                prepared_transaction.transaction, prepared_transaction.signers.iter().map(|s| s.pubkey()), e);
+        e.into()
+    })
+}
+
+pub fn execute_prepared_transaction_blockhash_retry(
+    prepared_transaction: &mut PreparedTransaction,
+    rpc_client: &RpcClient,
+    preflight_config: RpcSendTransactionConfig,
+    blockhash_commitment: CommitmentLevel,
+    blockhash_failure_retries: Option<u16>,
+) -> Result<Signature, anchor_client::ClientError> {
+    let rpc_client_blockhash = RpcClient::new_with_commitment(
+        rpc_client.url(),
+        CommitmentConfig {
+            commitment: blockhash_commitment,
+        },
+    );
+    execute_prepared_transaction_retry_blockhash_internal(
+        prepared_transaction,
+        &rpc_client_blockhash,
+        preflight_config,
+        blockhash_failure_retries,
+    )
 }
 
 pub fn simulate_prepared_transaction(
