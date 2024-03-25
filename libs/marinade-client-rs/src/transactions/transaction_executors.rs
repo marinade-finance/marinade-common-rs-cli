@@ -128,8 +128,9 @@ where
         for builder in anchor_builders {
             if print_only {
                 print_base64(&builder.instructions()?)?;
+            } else {
+                log_simulation(&builder.simulate(rpc_client))?;
             }
-            log_simulation(&builder.simulate(rpc_client))?;
         }
     } else {
         // execute or print_only
@@ -213,6 +214,7 @@ pub fn execute_transaction_builder(
 
     if print_only {
         print_base64(&transaction_builder.instructions())?;
+        return Ok(());
     }
 
     if simulate {
