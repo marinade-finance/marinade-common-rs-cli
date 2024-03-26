@@ -136,16 +136,16 @@ pub fn instance_arg<'a, 'b>() -> Arg<'a, 'b> {
         .help(INSTANCE_ARG.help)
 }
 
-pub const PRINT_ONLY_ARG: ArgConstant<'static> = ArgConstant {
-    name: "print_only",
-    long: "print-only",
-    help: "Transactions are not executed against the cluster, the transaction content is only printed in base64 format for multisig-use in SPL Gov.",
+pub const PRINT_ARG: ArgConstant<'static> = ArgConstant {
+    name: "print",
+    long: "print",
+    help: "During the execution/simulation, the transactions are also printed in base64 format for multisig-use in SPL Gov.",
 };
-pub fn print_only_arg<'a, 'b>() -> Arg<'a, 'b> {
-    Arg::with_name(PRINT_ONLY_ARG.name)
-        .long(PRINT_ONLY_ARG.long)
+pub fn print_arg<'a, 'b>() -> Arg<'a, 'b> {
+    Arg::with_name(PRINT_ARG.name)
+        .long(PRINT_ARG.long)
         .takes_value(false)
-        .help(PRINT_ONLY_ARG.help)
+        .help(PRINT_ARG.help)
 }
 
 pub const WITH_COMPUTE_UNIT_PRICE_ARG: ArgConstant<'static> = ArgConstant {
