@@ -51,11 +51,11 @@ pub fn log_execution(
 }
 
 pub trait TransactionSimulator {
-    fn simulate(&self, rpc_client: &RpcClient) -> RpcResult<RpcSimulateTransactionResult>;
+    fn simulate(&self, rpc_client: &RpcClient, sig_verify: bool) -> RpcResult<RpcSimulateTransactionResult>;
 }
 
 impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for RequestBuilder<'a, C> {
-    fn simulate(&self, rpc_client: &RpcClient) -> RpcResult<RpcSimulateTransactionResult> {
+    fn simulate(&self, rpc_client: &RpcClient, sig_verify: bool) -> RpcResult<RpcSimulateTransactionResult> {
         let tx = self.signed_transaction().map_err(|err| {
             error!(
                 "RequestBuilder#simulate: cannot build transactions from builder: {:?}",
@@ -63,7 +63,10 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for Reques
             );
             ForUser(format!("Building transaction error: {}", err))
         })?;
-        rpc_client.simulate_transaction(&tx)
+        rpc_client.simulate_transaction_with_config(&tx, RpcSimulateTransactionConfig {
+            sig_verify,
+            ..RpcSimulateTransactionConfig::default()
+        })
     }
 }
 
@@ -129,7 +132,7 @@ where
             if print {
                 print_base64(&builder.instructions()?)?;
             }
-            log_simulation(&builder.simulate(rpc_client))?;
+            log_simulation(&builder.simulate(rpc_client, !print))?;
         }
     } else {
         anchor_builders.into_iter().try_for_each(|builder| {
@@ -236,7 +239,7 @@ pub fn execute_transaction_builder(
                 &mut prepared_transaction,
                 rpc_client,
                 RpcSimulateTransactionConfig {
-                    sig_verify: true,
+                    sig_verify: !print,
                     commitment: simulation_commitment,
                     encoding: preflight_config.encoding,
                     min_context_slot: preflight_config.min_context_slot,
