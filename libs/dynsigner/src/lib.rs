@@ -31,6 +31,7 @@ impl Signer for DynSigner {
 }
 
 /// Keypair or Pubkey depending, could be one of that based on parameters of the CLI command.
+/// When --print and --simulate are set, a pubkey instead of a valid keypair can be passed.
 #[derive(Debug, Clone)]
 pub enum PubkeyOrSigner {
     Pubkey(Pubkey),
