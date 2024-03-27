@@ -51,11 +51,11 @@ pub fn log_execution(
 }
 
 pub trait TransactionSimulator {
-    fn simulate(&self, rpc_client: &RpcClient) -> RpcResult<RpcSimulateTransactionResult>;
+    fn simulate(&self, rpc_client: &RpcClient, sig_verify: bool) -> RpcResult<RpcSimulateTransactionResult>;
 }
 
 impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for RequestBuilder<'a, C> {
-    fn simulate(&self, rpc_client: &RpcClient) -> RpcResult<RpcSimulateTransactionResult> {
+    fn simulate(&self, rpc_client: &RpcClient, sig_verify: bool) -> RpcResult<RpcSimulateTransactionResult> {
         let tx = self.signed_transaction().map_err(|err| {
             error!(
                 "RequestBuilder#simulate: cannot build transactions from builder: {:?}",
@@ -63,7 +63,10 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for Reques
             );
             ForUser(format!("Building transaction error: {}", err))
         })?;
-        rpc_client.simulate_transaction(&tx)
+        rpc_client.simulate_transaction_with_config(&tx, RpcSimulateTransactionConfig {
+            sig_verify,
+            ..RpcSimulateTransactionConfig::default()
+        })
     }
 }
 
@@ -116,29 +119,27 @@ pub fn execute_anchor_builders_with_config<'a, I, C>(
     rpc_client: &RpcClient,
     preflight_config: RpcSendTransactionConfig,
     simulate: bool,
-    print_only: bool,
+    print: bool,
 ) -> anyhow::Result<()>
 where
     I: IntoIterator<Item = RequestBuilder<'a, C>>,
     C: Deref<Target = dynsigner::DynSigner> + Clone,
 {
-    warn_text_simulate_print_only(simulate, print_only);
+    warn_text_simulate_print(simulate, print);
 
     if simulate {
         for builder in anchor_builders {
-            if print_only {
+            if print {
                 print_base64(&builder.instructions()?)?;
             }
-            log_simulation(&builder.simulate(rpc_client))?;
+            log_simulation(&builder.simulate(rpc_client, !print))?;
         }
     } else {
-        // execute or print_only
         anchor_builders.into_iter().try_for_each(|builder| {
-            if print_only {
-                print_base64(&builder.instructions()?)
-            } else {
-                log_execution(&builder.send_with_spinner_and_config(preflight_config))
+            if print {
+                print_base64(&builder.instructions()?)?;
             }
+            log_execution(&builder.send_with_spinner_and_config(preflight_config))
         })?;
     }
 
@@ -150,7 +151,7 @@ pub fn execute_anchor_builders<'a, I, C>(
     rpc_client: &RpcClient,
     skip_preflight: bool,
     simulate: bool,
-    print_only: bool,
+    print: bool,
 ) -> anyhow::Result<()>
 where
     I: IntoIterator<Item = RequestBuilder<'a, C>>,
@@ -164,7 +165,7 @@ where
             ..RpcSendTransactionConfig::default()
         },
         simulate,
-        print_only,
+        print,
     )
 }
 
@@ -173,14 +174,14 @@ pub fn execute_anchor_builder_with_config<C: Deref<Target = dynsigner::DynSigner
     rpc_client: &RpcClient,
     preflight_config: RpcSendTransactionConfig,
     simulate: bool,
-    print_only: bool,
+    print: bool,
 ) -> anyhow::Result<()> {
     execute_anchor_builders_with_config(
         std::iter::once(anchor_builder),
         rpc_client,
         preflight_config,
         simulate,
-        print_only,
+        print,
     )
 }
 
@@ -189,14 +190,14 @@ pub fn execute_anchor_builder<C: Deref<Target = dynsigner::DynSigner> + Clone>(
     rpc_client: &RpcClient,
     skip_preflight: bool,
     simulate: bool,
-    print_only: bool,
+    print: bool,
 ) -> anyhow::Result<()> {
     execute_anchor_builders(
         std::iter::once(anchor_builder),
         rpc_client,
         skip_preflight,
         simulate,
-        print_only,
+        print,
     )
 }
 
@@ -206,12 +207,12 @@ pub fn execute_transaction_builder(
     preflight_config: RpcSendTransactionConfig,
     blockhash_commitment: CommitmentLevel,
     simulate: bool,
-    print_only: bool,
+    print: bool,
     blockhash_failure_retries: Option<u16>,
 ) -> anyhow::Result<()> {
-    warn_text_simulate_print_only(simulate, print_only);
+    warn_text_simulate_print(simulate, print);
 
-    if print_only {
+    if print {
         print_base64(&transaction_builder.instructions())?;
     }
 
@@ -238,7 +239,7 @@ pub fn execute_transaction_builder(
                 &mut prepared_transaction,
                 rpc_client,
                 RpcSimulateTransactionConfig {
-                    sig_verify: true,
+                    sig_verify: !print,
                     commitment: simulation_commitment,
                     encoding: preflight_config.encoding,
                     min_context_slot: preflight_config.min_context_slot,
@@ -436,11 +437,11 @@ pub fn simulate_prepared_transaction(
     rpc_client.simulate_transaction_with_config(tx, simulate_config)
 }
 
-fn warn_text_simulate_print_only(simulate: bool, print_only: bool) {
+fn warn_text_simulate_print(simulate: bool, print: bool) {
     if simulate {
         warn!("Simulation mode: transactions will not be executed, only simulated.");
     }
-    if print_only {
-        warn!("Print only mode: transactions will be printed in base64 format.");
+    if print {
+        warn!("Print mode: transactions will also be printed in base64 format.");
     }
 }
