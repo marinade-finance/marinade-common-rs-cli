@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.71"
-clap = "2.34.0"
-log = "0.4.18"
-solana-sdk = "1.14.18"
-solana-clap-utils = "1.14.18"
-solana-cli-config = "1.14.18"
-solana-remote-wallet = "1.14.18"
-dynsigner = {path = "../dynsigner"}
+anyhow = { workspace = true }
+clap = { workspace = true }
+log = { workspace = true }
+marinade-solana-common = { workspace = true }
+solana-clap-utils = { workspace = true }
+solana-cli-config = { workspace = true }
+solana-remote-wallet = { workspace = true }
+solana-sdk = { workspace = true }

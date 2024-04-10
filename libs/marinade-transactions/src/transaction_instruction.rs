@@ -1,11 +1,11 @@
-use anchor_lang::prelude::{AnchorDeserialize, AnchorSerialize};
+use borsh::{BorshDeserialize, BorshSerialize};
 use solana_sdk::instruction::{AccountMeta, Instruction};
 use solana_sdk::pubkey::Pubkey;
 
 // Set of struct wrappers that can be used to deserialize instruction.
 // For marinade client it's the base64 format which is used in multisig like SPL Governance.
 
-#[derive(Debug, Clone, AnchorDeserialize, AnchorSerialize)]
+#[derive(Debug, Clone, BorshDeserialize, BorshSerialize)]
 pub struct TransactionInstruction {
     // Target program to execute against.
     pub program_id: Pubkey,
@@ -25,7 +25,7 @@ impl From<&TransactionInstruction> for Instruction {
     }
 }
 
-#[derive(Debug, AnchorSerialize, AnchorDeserialize, Clone)]
+#[derive(Debug, BorshSerialize, BorshDeserialize, Clone)]
 pub struct TransactionAccount {
     pub pubkey: Pubkey,
     pub is_signer: bool,
@@ -65,7 +65,7 @@ pub fn print_base64(instructions: &Vec<Instruction>) -> anyhow::Result<()> {
         println!(
             "program: {}\n  {}",
             instruction.program_id,
-            anchor_lang::__private::base64::encode(transaction_instruction.try_to_vec()?)
+            base64::encode(transaction_instruction.try_to_vec()?)
         );
     }
     Ok(())

@@ -1,5 +1,5 @@
-use crate::transactions::prepared_transaction::PreparedTransaction;
-use crate::transactions::signature_builder::SignatureBuilder;
+use crate::prepared_transaction::PreparedTransaction;
+use crate::signature_builder::SignatureBuilder;
 use anchor_client::RequestBuilder;
 use anyhow::anyhow;
 use log::error;
@@ -60,7 +60,7 @@ impl TransactionBuilder {
         Self::new(fee_payer, PACKET_DATA_SIZE)
     }
 
-    ///constructor, no size limit, can be split in many transactions
+    ///constructor, no size limit, can be split in many marinade-transactions
     pub fn unlimited(fee_payer: Arc<dyn Signer>) -> Self {
         Self::new(fee_payer, 0)
     }

@@ -1,17 +1,15 @@
 #![allow(clippy::too_many_arguments)]
-use crate::marinade::instructions::{
+use crate::instructions::{
     add_liquidity, add_validator, change_authority, claim, config_lp, config_marinade,
     config_validator_system, deactivate_stake, deposit, deposit_stake_account, emergency_pause,
     emergency_resume, emergency_unstake, initialize, liquid_unstake, merge_stakes, order_unstake,
     partial_unstake, redelegate, remove_liquidity, remove_validator, set_validator_score,
     stake_reserve, update_active, update_deactivated, withdraw_stake_account,
 };
-use crate::marinade::rpc_marinade::RpcMarinade;
-use crate::marinade::verifiers::{
-    verify_admin_authority, verify_manager_authority, verify_pause_authority,
-};
+use crate::rpc_marinade::RpcMarinade;
+use crate::verifiers::{verify_admin_authority, verify_manager_authority, verify_pause_authority};
 use anchor_client::RequestBuilder;
-use dynsigner::PubkeyOrSigner;
+use marinade_solana_common::PubkeyOrSigner;
 use marinade_finance::instructions::{ChangeAuthorityData, ConfigMarinadeParams};
 use marinade_finance::state::Fee;
 use solana_sdk::pubkey::Pubkey;

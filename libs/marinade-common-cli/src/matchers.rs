@@ -1,12 +1,13 @@
 use anyhow::anyhow;
 use clap::ArgMatches;
-use dynsigner::PubkeyOrSigner;
+use marinade_solana_common::PubkeyOrSigner;
 use log::debug;
 use solana_clap_utils::input_parsers::pubkey_of_signer;
 use solana_clap_utils::keypair::signer_from_path;
 use solana_remote_wallet::remote_wallet::RemoteWalletManager;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
+use std::rc::Rc;
 use std::{str::FromStr, sync::Arc};
 
 // Getting signer from the matched name as the keypair path argument, or returns the default signer
@@ -14,7 +15,7 @@ pub fn signer_from_path_or_default(
     matches: &ArgMatches<'_>,
     name: &str,
     default_signer: &Arc<dyn Signer>,
-    wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
+    wallet_manager: &mut Option<Rc<RemoteWalletManager>>,
 ) -> anyhow::Result<Arc<dyn Signer>> {
     if let Some(location) = matches.value_of(name) {
         Ok(Arc::from(
@@ -39,7 +40,7 @@ pub fn signer_from_path_or_default(
 pub fn pubkey_or_of_signer(
     matches: &ArgMatches<'_>,
     name: &str,
-    wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
+    wallet_manager: &mut Option<Rc<RemoteWalletManager>>,
 ) -> anyhow::Result<Pubkey> {
     pubkey_or_of_signer_optional(matches, name, wallet_manager)
         .map(|pubkey| {
@@ -52,7 +53,7 @@ pub fn pubkey_or_of_signer(
 pub fn pubkey_or_of_signer_optional(
     matches: &ArgMatches<'_>,
     name: &str,
-    wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
+    wallet_manager: &mut Option<Rc<RemoteWalletManager>>,
 ) -> anyhow::Result<Option<Pubkey>> {
     matches.value_of(name).map_or(Ok(None), |matched_value| {
         let pubkey = Pubkey::from_str(matched_value).or_else(|e| {
@@ -76,7 +77,7 @@ pub fn pubkey_or_of_signer_optional(
 pub fn process_multiple_pubkeys(
     arg_matches: &ArgMatches,
     arg_name: &str,
-    wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
+    wallet_manager: &mut Option<Rc<RemoteWalletManager>>,
 ) -> anyhow::Result<Vec<Pubkey>> {
     let mut value_pubkeys: Vec<Pubkey> = vec![];
     if let Some(values) = arg_matches.values_of(arg_name) {
@@ -91,12 +92,12 @@ pub fn process_multiple_pubkeys(
 
 /// Difference between this and 'pubkey_or_from_signer' method is that this method takes just the `value_or_path`
 /// parameter and tries to find it as a pubkey. On the other hand the `pubkey_or_from_signer` matches the name of
-/// argument and the value of argument first and then it search for pubkey from the value.
+/// argument and the value of argument first, and then it search for pubkey from the value.
 fn pubkey_or_from_path(
     matches: &ArgMatches<'_>,
     name: &str,
     value_or_path: &str,
-    wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
+    wallet_manager: &mut Option<Rc<RemoteWalletManager>>,
 ) -> anyhow::Result<Pubkey> {
     Pubkey::from_str(value_or_path).or_else(|e| {
         debug!(
@@ -117,11 +118,11 @@ fn pubkey_or_from_path(
 }
 
 /// Returns keypair if the parameter can be parsed as path to a file with keypair,
-/// otherwise it parse it as a pubkey. Otherwise it fails.
+/// otherwise it parse it as a pubkey. Otherwise, it fails.
 pub fn pubkey_or_signer(
     matches: &ArgMatches<'_>,
     name: &str,
-    wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
+    wallet_manager: &mut Option<Rc<RemoteWalletManager>>,
 ) -> anyhow::Result<Option<PubkeyOrSigner>> {
     // when the argument provides no value then returns None
     // when the argument provides a value then we parse and parsing error is returned as an error, not as None
@@ -145,7 +146,7 @@ pub fn pubkey_or_signer(
 }
 
 pub fn match_u16(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<u16> {
-    crate::matchers::match_u16_option(matches, name)?
+    match_u16_option(matches, name)?
         .ok_or_else(|| anyhow::Error::msg(format!("match_u16: argument '{}' missing", name)))
 }
 

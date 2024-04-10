@@ -1,6 +1,4 @@
-use crate::marinade::state::{
-    stake_list, stakes_info, stakes_info_reversed, validator_list, StakeInfo,
-};
+use crate::state::{stake_list, stakes_info, stakes_info_reversed, validator_list, StakeInfo};
 use anchor_client::{Client, Program};
 use marinade_finance::state::stake_system::StakeRecord;
 use marinade_finance::state::validator_system::ValidatorRecord;
@@ -24,7 +22,7 @@ impl<C: Deref<Target = impl Signer> + Clone> RpcMarinade<C> {
         program_pubkey: Pubkey,
         instance_pubkey: Pubkey,
     ) -> anyhow::Result<Self> {
-        let program = anchor_client.program(program_pubkey);
+        let program = anchor_client.program(program_pubkey)?;
         let state: State = program.account(instance_pubkey)?;
         Ok(Self {
             client: program.rpc(),

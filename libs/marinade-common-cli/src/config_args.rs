@@ -46,7 +46,7 @@ pub const SKIP_PREFLIGHT_ARG: ArgConstant<'static> = ArgConstant {
     name: "skip_preflight",
     long: "skip-preflight",
     help:
-        "Skip transactions simulation at RPC node before sending to cluster (by default simulated).",
+        "Skip marinade-transactions simulation at RPC node before sending to cluster (by default simulated).",
 };
 pub fn skip_preflight_arg<'a, 'b>() -> Arg<'a, 'b> {
     Arg::with_name(SKIP_PREFLIGHT_ARG.name)
@@ -139,7 +139,7 @@ pub fn instance_arg<'a, 'b>() -> Arg<'a, 'b> {
 pub const PRINT_ARG: ArgConstant<'static> = ArgConstant {
     name: "print",
     long: "print",
-    help: "During the execution/simulation, the transactions are also printed in base64 format for multisig-use in SPL Gov.",
+    help: "During the execution/simulation, the marinade-transactions are also printed in base64 format for multisig-use in SPL Gov.",
 };
 pub fn print_arg<'a, 'b>() -> Arg<'a, 'b> {
     Arg::with_name(PRINT_ARG.name)

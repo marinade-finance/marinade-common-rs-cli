@@ -1,4 +1,4 @@
-use crate::transactions::signature_builder::SignatureBuilder;
+use crate::signature_builder::SignatureBuilder;
 use solana_sdk::hash::Hash;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::{Signer, SignerError};

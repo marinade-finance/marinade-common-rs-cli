@@ -1,7 +1,7 @@
-use crate::transactions::prepared_transaction::PreparedTransaction;
-use crate::transactions::transaction_builder::TransactionBuilder;
-use crate::transactions::transaction_instruction::print_base64;
-use anchor_client::RequestBuilder;
+use crate::prepared_transaction::PreparedTransaction;
+use crate::transaction_builder::TransactionBuilder;
+use crate::transaction_instruction::print_base64;
+use anchor_client::{DynSigner, RequestBuilder};
 use anyhow::bail;
 use log::{debug, error, info, warn};
 use solana_client::client_error::ClientError as SolanaClientError;
@@ -28,11 +28,7 @@ pub fn log_execution(
                     data:
                         RpcResponseErrorData::SendTransactionPreflightFailure(
                             RpcSimulateTransactionResult {
-                                err: _,
-                                logs: Some(logs),
-                                accounts: _,
-                                return_data: _,
-                                units_consumed: _,
+                                logs: Some(logs), ..
                             },
                         ),
                     ..
@@ -51,22 +47,33 @@ pub fn log_execution(
 }
 
 pub trait TransactionSimulator {
-    fn simulate(&self, rpc_client: &RpcClient, sig_verify: bool) -> RpcResult<RpcSimulateTransactionResult>;
+    fn simulate(
+        &self,
+        rpc_client: &RpcClient,
+        sig_verify: bool,
+    ) -> RpcResult<RpcSimulateTransactionResult>;
 }
 
 impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for RequestBuilder<'a, C> {
-    fn simulate(&self, rpc_client: &RpcClient, sig_verify: bool) -> RpcResult<RpcSimulateTransactionResult> {
+    fn simulate(
+        &self,
+        rpc_client: &RpcClient,
+        sig_verify: bool,
+    ) -> RpcResult<RpcSimulateTransactionResult> {
         let tx = self.signed_transaction().map_err(|err| {
             error!(
-                "RequestBuilder#simulate: cannot build transactions from builder: {:?}",
+                "RequestBuilder#simulate: cannot build marinade-transactions from builder: {:?}",
                 err
             );
             ForUser(format!("Building transaction error: {}", err))
         })?;
-        rpc_client.simulate_transaction_with_config(&tx, RpcSimulateTransactionConfig {
-            sig_verify,
-            ..RpcSimulateTransactionConfig::default()
-        })
+        rpc_client.simulate_transaction_with_config(
+            &tx,
+            RpcSimulateTransactionConfig {
+                sig_verify,
+                ..RpcSimulateTransactionConfig::default()
+            },
+        )
     }
 }
 
@@ -93,11 +100,7 @@ pub fn log_simulation(
                 data:
                     RpcResponseErrorData::SendTransactionPreflightFailure(
                         RpcSimulateTransactionResult {
-                            err: _,
-                            logs: Some(logs),
-                            accounts: _,
-                            units_consumed: _,
-                            return_data: _,
+                            logs: Some(logs), ..
                         },
                     ),
                 ..
@@ -123,7 +126,7 @@ pub fn execute_anchor_builders_with_config<'a, I, C>(
 ) -> anyhow::Result<()>
 where
     I: IntoIterator<Item = RequestBuilder<'a, C>>,
-    C: Deref<Target = dynsigner::DynSigner> + Clone,
+    C: Deref<Target = DynSigner> + Clone,
 {
     warn_text_simulate_print(simulate, print);
 
@@ -155,7 +158,7 @@ pub fn execute_anchor_builders<'a, I, C>(
 ) -> anyhow::Result<()>
 where
     I: IntoIterator<Item = RequestBuilder<'a, C>>,
-    C: Deref<Target = dynsigner::DynSigner> + Clone,
+    C: Deref<Target = DynSigner> + Clone,
 {
     execute_anchor_builders_with_config(
         anchor_builders,
@@ -169,7 +172,7 @@ where
     )
 }
 
-pub fn execute_anchor_builder_with_config<C: Deref<Target = dynsigner::DynSigner> + Clone>(
+pub fn execute_anchor_builder_with_config<C: Deref<Target = DynSigner> + Clone>(
     anchor_builder: RequestBuilder<C>,
     rpc_client: &RpcClient,
     preflight_config: RpcSendTransactionConfig,
@@ -185,7 +188,7 @@ pub fn execute_anchor_builder_with_config<C: Deref<Target = dynsigner::DynSigner
     )
 }
 
-pub fn execute_anchor_builder<C: Deref<Target = dynsigner::DynSigner> + Clone>(
+pub fn execute_anchor_builder<C: Deref<Target = DynSigner> + Clone>(
     anchor_builder: RequestBuilder<C>,
     rpc_client: &RpcClient,
     skip_preflight: bool,
@@ -250,7 +253,7 @@ pub fn execute_transaction_builder(
             log_simulation(&simulation_result)?;
         }
         if number_of_transactions > 1 {
-            warn!("Simulation mode: only the first bunch of transactions was simulated, the rest was not simulated.");
+            warn!("Simulation mode: only the first bunch of marinade-transactions was simulated, the rest was not simulated.");
         }
     } else {
         for mut prepared_transaction in transaction_builder.sequence_combined() {
@@ -439,9 +442,9 @@ pub fn simulate_prepared_transaction(
 
 fn warn_text_simulate_print(simulate: bool, print: bool) {
     if simulate {
-        warn!("Simulation mode: transactions will not be executed, only simulated.");
+        warn!("Simulation mode: marinade-transactions will not be executed, only simulated.");
     }
     if print {
-        warn!("Print mode: transactions will also be printed in base64 format.");
+        warn!("Print mode: marinade-transactions will also be printed in base64 format.");
     }
 }
