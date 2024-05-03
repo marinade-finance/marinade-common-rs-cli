@@ -1,13 +1,14 @@
 use crate::transactions::signature_builder::SignatureBuilder;
 use solana_sdk::hash::Hash;
 use solana_sdk::pubkey::Pubkey;
-use solana_sdk::signer::{Signer, SignerError};
+use solana_sdk::signer::SignerError;
 use solana_sdk::transaction::Transaction;
 use std::sync::Arc;
+use solana_sdk::signer::keypair::Keypair;
 
 pub struct PreparedTransaction {
     pub transaction: Transaction,
-    pub signers: Vec<Arc<dyn Signer>>,
+    pub signers: Vec<Arc<Keypair>>,
 }
 
 impl PreparedTransaction {

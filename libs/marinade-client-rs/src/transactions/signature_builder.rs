@@ -9,11 +9,11 @@ use std::{collections::HashMap, sync::Arc};
 
 #[derive(Debug, Default)]
 pub struct SignatureBuilder {
-    pub signers: HashMap<Pubkey, Arc<dyn Signer>>,
+    pub signers: HashMap<Pubkey, Arc<Keypair>>,
 }
 
 impl SignatureBuilder {
-    pub fn add_signer(&mut self, signer: Arc<dyn Signer>) -> Pubkey {
+    pub fn add_signer(&mut self, signer: Arc<Keypair>) -> Pubkey {
         let pubkey = signer.pubkey();
         self.signers.insert(pubkey, signer);
         pubkey
@@ -30,11 +30,11 @@ impl SignatureBuilder {
         self.signers.contains_key(key)
     }
 
-    pub fn get_signer(&self, key: &Pubkey) -> Option<Arc<dyn Signer>> {
+    pub fn get_signer(&self, key: &Pubkey) -> Option<Arc<Keypair>> {
         self.signers.get(key).cloned()
     }
 
-    pub fn into_signers(self) -> Vec<Arc<dyn Signer>> {
+    pub fn into_signers(self) -> Vec<Arc<Keypair>> {
         self.signers.into_values().collect()
     }
 
@@ -58,7 +58,7 @@ impl SignatureBuilder {
     pub fn signers_for_transaction(
         &self,
         transaction: &Transaction,
-    ) -> Result<Vec<Arc<dyn Signer>>, Pubkey> {
+    ) -> Result<Vec<Arc<Keypair>>, Pubkey> {
         transaction.message().account_keys
             [0..transaction.message().header.num_required_signatures as usize]
             .iter()

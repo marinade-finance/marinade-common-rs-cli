@@ -1,13 +1,39 @@
 use anyhow::anyhow;
 use clap::ArgMatches;
-use dynsigner::PubkeyOrSigner;
+use dynsigner::{PubkeyOrKeypair, PubkeyOrSigner};
 use log::debug;
 use solana_clap_utils::input_parsers::pubkey_of_signer;
-use solana_clap_utils::keypair::signer_from_path;
+use solana_clap_utils::keypair::{keypair_from_path, signer_from_path};
 use solana_remote_wallet::remote_wallet::RemoteWalletManager;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
 use std::{str::FromStr, sync::Arc};
+use solana_sdk::signature::Keypair;
+
+// Getting keypair from the matched name as the keypair path argument, or returns the default signer
+pub fn keypair_from_path_or_default(
+    matches: &ArgMatches<'_>,
+    name: &str,
+    default_keypair: &Arc<Keypair>,
+) -> anyhow::Result<Arc<Keypair>> {
+    if let Some(location) = matches.value_of(name) {
+        Ok(Arc::from(
+            keypair_from_path(matches, location, name, false)
+                .map_err(|e| {
+                    debug!("keypair_from_path_or_default failed: location {}, keypair name: {}, matches: {:?}: {:?}",
+                        location, name, matches, e);
+                    anyhow!("{}: arg name: {}, location: {}", e, name, location)
+                })?,
+        ))
+    } else {
+        debug!(
+            "failed to load keypair {} using default keypair {}",
+            name,
+            default_keypair.pubkey()
+        );
+        Ok(default_keypair.clone())
+    }
+}
 
 // Getting signer from the matched name as the keypair path argument, or returns the default signer
 pub fn signer_from_path_or_default(
@@ -113,6 +139,31 @@ fn pubkey_or_from_path(
                 )
             })?;
         Ok(signer.pubkey())
+    })
+}
+
+pub fn pubkey_or_keypair(
+    matches: &ArgMatches<'_>,
+    name: &str,
+) -> anyhow::Result<Option<PubkeyOrKeypair>> {
+    // when the argument provides no value then returns None
+    // when the argument provides a value then we parse and parsing error is returned as an error, not as None
+    matches.value_of(name).map_or(Ok(None), |matched_value| {
+        let parsed_keypair = keypair_from_path(matches, matched_value, name, false);
+        match parsed_keypair {
+            Ok(keypair) => Ok(Some(PubkeyOrKeypair::Keypair(Arc::from(keypair)))),
+            Err(_) => {
+                let parsed_pubkey = Pubkey::from_str(matched_value).map_err(|e| {
+                    anyhow!(
+                        "Failed to parse argument {:?}/{} as pubkey: {}",
+                        matches,
+                        name,
+                        e
+                    )
+                })?;
+                Ok(Some(PubkeyOrKeypair::Pubkey(parsed_pubkey)))
+            }
+        }
     })
 }
 

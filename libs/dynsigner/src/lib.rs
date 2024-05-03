@@ -1,6 +1,7 @@
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
 use std::sync::Arc;
+use solana_sdk::signature::Keypair;
 
 /// Auxiliary data structure to align the types of the solana-clap-utils with anchor-client.
 pub struct DynSigner(pub Arc<dyn Signer>);
@@ -91,5 +92,67 @@ impl From<PubkeyOrSigner> for Pubkey {
 impl Into<PubkeyOrSigner> for Pubkey {
     fn into(self) -> PubkeyOrSigner {
         PubkeyOrSigner::Pubkey(self)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum PubkeyOrKeypair {
+    Pubkey(Pubkey),
+    Keypair(Arc<Keypair>),
+}
+
+impl PubkeyOrKeypair {
+    pub fn pubkey(&self) -> Pubkey {
+        match self {
+            PubkeyOrKeypair::Pubkey(pubkey) => *pubkey,
+            PubkeyOrKeypair::Keypair(keypair) => keypair.pubkey(),
+        }
+    }
+
+    pub fn try_as_keypair(&self) -> Option<Arc<Keypair>> {
+        match self {
+            PubkeyOrKeypair::Pubkey(_) => None,
+            PubkeyOrKeypair::Keypair(keypair) => Some(keypair.clone()),
+        }
+    }
+
+    pub fn use_keypair(&self) -> Option<&Arc<Keypair>> {
+        match self {
+            PubkeyOrKeypair::Pubkey(_) => None,
+            PubkeyOrKeypair::Keypair(keypair) => Some(keypair),
+        }
+    }
+}
+
+impl From<PubkeyOrKeypair> for Arc<Keypair> {
+    fn from(value: PubkeyOrKeypair) -> Self {
+        match value {
+            PubkeyOrKeypair::Pubkey(_) => panic!("Cannot convert PubkeyOrSigner::Pubkey to Signer"),
+            PubkeyOrKeypair::Keypair(keypair) => keypair,
+        }
+    }
+}
+
+impl Into<PubkeyOrKeypair> for Arc<Keypair> {
+    fn into(self) -> PubkeyOrKeypair {
+        PubkeyOrKeypair::Keypair(self)
+    }
+}
+
+impl Into<PubkeyOrKeypair> for &Arc<Keypair> {
+    fn into(self) -> PubkeyOrKeypair {
+        PubkeyOrKeypair::Keypair(self.clone())
+    }
+}
+
+impl From<PubkeyOrKeypair> for Pubkey {
+    fn from(value: PubkeyOrKeypair) -> Self {
+        value.pubkey()
+    }
+}
+
+impl Into<PubkeyOrKeypair> for Pubkey {
+    fn into(self) -> PubkeyOrKeypair {
+        PubkeyOrKeypair::Pubkey(self)
     }
 }
