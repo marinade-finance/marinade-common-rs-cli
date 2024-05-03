@@ -5,7 +5,7 @@ use anyhow::anyhow;
 use log::error;
 use once_cell::sync::OnceCell;
 use solana_sdk::{
-    instruction::Instruction, packet::PACKET_DATA_SIZE, pubkey::Pubkey, signature::Signer,
+    instruction::Instruction, packet::PACKET_DATA_SIZE, pubkey::Pubkey, signature::{Signer, Keypair},
     transaction::Transaction,
 };
 use std::ops::Deref;
@@ -30,7 +30,7 @@ pub struct TransactionBuilder {
 }
 
 impl TransactionBuilder {
-    pub fn new(fee_payer: Arc<dyn Signer>, max_transaction_size: usize) -> Self {
+    pub fn new(fee_payer: Arc<Keypair>, max_transaction_size: usize) -> Self {
         let mut signature_builder = SignatureBuilder::default();
         let builder = Self {
             fee_payer: signature_builder.add_signer(fee_payer),
@@ -47,25 +47,25 @@ impl TransactionBuilder {
         self.fee_payer
     }
 
-    pub fn get_signer(&self, key: &Pubkey) -> Option<Arc<dyn Signer>> {
+    pub fn get_signer(&self, key: &Pubkey) -> Option<Arc<Keypair>> {
         self.signature_builder.get_signer(key)
     }
 
-    pub fn fee_payer_signer(&self) -> Arc<dyn Signer> {
+    pub fn fee_payer_signer(&self) -> Arc<Keypair> {
         self.get_signer(&self.fee_payer()).unwrap()
     }
 
     ///constructor, limit size to a single transaction
-    pub fn limited(fee_payer: Arc<dyn Signer>) -> Self {
+    pub fn limited(fee_payer: Arc<Keypair>) -> Self {
         Self::new(fee_payer, PACKET_DATA_SIZE)
     }
 
     ///constructor, no size limit, can be split in many transactions
-    pub fn unlimited(fee_payer: Arc<dyn Signer>) -> Self {
+    pub fn unlimited(fee_payer: Arc<Keypair>) -> Self {
         Self::new(fee_payer, 0)
     }
 
-    pub fn add_signer(&mut self, signer: Arc<dyn Signer>) -> Pubkey {
+    pub fn add_signer(&mut self, signer: Arc<Keypair>) -> Pubkey {
         self.signature_builder.add_signer(signer)
     }
 
@@ -73,7 +73,7 @@ impl TransactionBuilder {
         self.signature_builder.new_signer()
     }
 
-    pub fn add_signer_checked(&mut self, signer: &Arc<dyn Signer>) {
+    pub fn add_signer_checked(&mut self, signer: &Arc<Keypair>) {
         if !self.signature_builder.contains_key(&signer.pubkey()) {
             self.add_signer(signer.clone());
         }
@@ -315,8 +315,8 @@ mod tests {
 
     #[test]
     fn test_add_signer() {
-        let signer1: Arc<dyn Signer> = Arc::new(Keypair::new());
-        let signer2: Arc<dyn Signer> = Arc::new(Keypair::new());
+        let signer1: Arc<Keypair> = Arc::new(Keypair::new());
+        let signer2: Arc<Keypair> = Arc::new(Keypair::new());
         let mut tx_builder = TransactionBuilder::limited(Arc::new(Keypair::new()));
         tx_builder.add_signer_checked(&signer1);
         tx_builder.add_signer_checked(&signer2);
