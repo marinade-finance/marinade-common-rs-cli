@@ -11,3 +11,4 @@ The repository is divided into three crates:
 2. `marinade-client-rs`: This crate offers a set of helper functions for building Marinade instructions using the [Anchor client](https://github.com/coral-xyz/anchor/tree/master/client). It also includes additional utility functions for working with Marinade state, particularly for managing Marinade list accounts.
 
 3. `marinade-common-cli`: This crate provides a command-line parser helper for clap parser library, following the same conventions as the Solana clap utilities.
+
