@@ -1,7 +1,7 @@
 use solana_sdk::pubkey::Pubkey;
+use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
 use std::sync::Arc;
-use solana_sdk::signature::Keypair;
 
 /// Auxiliary data structure to align the types of the solana-clap-utils with anchor-client.
 pub struct DynSigner(pub Arc<dyn Signer>);

@@ -6,9 +6,9 @@ use solana_clap_utils::input_parsers::pubkey_of_signer;
 use solana_clap_utils::keypair::{keypair_from_path, signer_from_path};
 use solana_remote_wallet::remote_wallet::RemoteWalletManager;
 use solana_sdk::pubkey::Pubkey;
+use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
 use std::{str::FromStr, sync::Arc};
-use solana_sdk::signature::Keypair;
 
 // Getting keypair from the matched name as the keypair path argument, or returns the default signer
 pub fn keypair_from_path_or_default(

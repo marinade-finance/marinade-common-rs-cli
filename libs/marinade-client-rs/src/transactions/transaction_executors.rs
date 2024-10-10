@@ -51,11 +51,19 @@ pub fn log_execution(
 }
 
 pub trait TransactionSimulator {
-    fn simulate(&self, rpc_client: &RpcClient, sig_verify: bool) -> RpcResult<RpcSimulateTransactionResult>;
+    fn simulate(
+        &self,
+        rpc_client: &RpcClient,
+        sig_verify: bool,
+    ) -> RpcResult<RpcSimulateTransactionResult>;
 }
 
 impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for RequestBuilder<'a, C> {
-    fn simulate(&self, rpc_client: &RpcClient, sig_verify: bool) -> RpcResult<RpcSimulateTransactionResult> {
+    fn simulate(
+        &self,
+        rpc_client: &RpcClient,
+        sig_verify: bool,
+    ) -> RpcResult<RpcSimulateTransactionResult> {
         let tx = self.signed_transaction().map_err(|err| {
             error!(
                 "RequestBuilder#simulate: cannot build transactions from builder: {:?}",
@@ -63,10 +71,13 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for Reques
             );
             ForUser(format!("Building transaction error: {}", err))
         })?;
-        rpc_client.simulate_transaction_with_config(&tx, RpcSimulateTransactionConfig {
-            sig_verify,
-            ..RpcSimulateTransactionConfig::default()
-        })
+        rpc_client.simulate_transaction_with_config(
+            &tx,
+            RpcSimulateTransactionConfig {
+                sig_verify,
+                ..RpcSimulateTransactionConfig::default()
+            },
+        )
     }
 }
 
@@ -220,6 +231,7 @@ pub fn execute_transaction_builder(
         // expecting the instructions are dependent one to each other
         // the result of the first can be used in the next one, for that simulation is run only for the fist bunch
         let mut number_of_transactions = 0_u32;
+        let is_checked_signers = transaction_builder.is_check_signers();
         for mut prepared_transaction in transaction_builder.sequence_combined() {
             number_of_transactions += 1;
             if number_of_transactions > 1 {
@@ -239,7 +251,7 @@ pub fn execute_transaction_builder(
                 &mut prepared_transaction,
                 rpc_client,
                 RpcSimulateTransactionConfig {
-                    sig_verify: !print,
+                    sig_verify: !print && !is_checked_signers,
                     commitment: simulation_commitment,
                     encoding: preflight_config.encoding,
                     min_context_slot: preflight_config.min_context_slot,
