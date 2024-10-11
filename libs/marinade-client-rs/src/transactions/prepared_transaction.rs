@@ -1,10 +1,10 @@
 use crate::transactions::signature_builder::SignatureBuilder;
 use solana_sdk::hash::Hash;
 use solana_sdk::pubkey::Pubkey;
+use solana_sdk::signer::keypair::Keypair;
 use solana_sdk::signer::SignerError;
 use solana_sdk::transaction::Transaction;
 use std::sync::Arc;
-use solana_sdk::signer::keypair::Keypair;
 
 pub struct PreparedTransaction {
     pub transaction: Transaction,
@@ -21,6 +21,13 @@ impl PreparedTransaction {
             transaction,
             signers,
         })
+    }
+
+    pub fn new_no_signers(transaction: Transaction) -> Self {
+        Self {
+            transaction,
+            signers: vec![],
+        }
     }
 
     pub fn sign(&mut self, recent_blockhash: Hash) -> Result<&Transaction, SignerError> {

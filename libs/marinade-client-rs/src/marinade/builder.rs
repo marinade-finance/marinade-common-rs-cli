@@ -15,10 +15,10 @@ use dynsigner::PubkeyOrKeypair;
 use marinade_finance::instructions::{ChangeAuthorityData, ConfigMarinadeParams};
 use marinade_finance::state::Fee;
 use solana_sdk::pubkey::Pubkey;
+use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
 use std::ops::Deref;
 use std::sync::Arc;
-use solana_sdk::signature::Keypair;
 
 pub trait MarinadeRequestBuilder<'a, C> {
     fn add_validator(

@@ -1,4 +1,4 @@
-use log::error;
+use log::{debug, error};
 use solana_sdk::{
     pubkey::Pubkey,
     signature::{Keypair, Signature, Signer, SignerError},
@@ -7,12 +7,27 @@ use solana_sdk::{
 };
 use std::{collections::HashMap, sync::Arc};
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct SignatureBuilder {
     pub signers: HashMap<Pubkey, Arc<Keypair>>,
+    pub is_check_signers: bool,
 }
 
 impl SignatureBuilder {
+    pub fn new() -> Self {
+        Self {
+            is_check_signers: true,
+            signers: HashMap::new(),
+        }
+    }
+
+    pub fn new_without_check() -> Self {
+        Self {
+            is_check_signers: false,
+            ..SignatureBuilder::new()
+        }
+    }
+
     pub fn add_signer(&mut self, signer: Arc<Keypair>) -> Pubkey {
         let pubkey = signer.pubkey();
         self.signers.insert(pubkey, signer);
@@ -47,9 +62,16 @@ impl SignatureBuilder {
             if let Some(keypair) = self.signers.get(&key) {
                 transaction.signatures[pos] = keypair.try_sign_message(&message)?;
             } else {
-                error!("sign_transaction: not enough signers, expected key: {}, available keys in builder: {:?}",
-                    key, self.signers.keys().collect::<Vec<&Pubkey>>());
-                return Err(SignerError::NotEnoughSigners);
+                let error_msg = format!(
+                    "sign_transaction: not enough signers, expected key: {}, available keys in builder: {:?}",
+                    key, self.signers.keys().collect::<Vec<&Pubkey>>()
+                );
+                if self.is_check_signers {
+                    error!("{}", error_msg);
+                    return Err(SignerError::NotEnoughSigners);
+                } else {
+                    debug!("{}", error_msg);
+                }
             }
         }
         Ok(())
