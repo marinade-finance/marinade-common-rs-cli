@@ -251,7 +251,7 @@ pub fn execute_transaction_builder(
                 &mut prepared_transaction,
                 rpc_client,
                 RpcSimulateTransactionConfig {
-                    sig_verify: !print && !is_checked_signers,
+                    sig_verify: !print && is_checked_signers,
                     commitment: simulation_commitment,
                     encoding: preflight_config.encoding,
                     min_context_slot: preflight_config.min_context_slot,
