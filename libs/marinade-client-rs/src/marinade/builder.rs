@@ -4,7 +4,7 @@ use crate::marinade::instructions::{
     config_validator_system, deactivate_stake, deposit, deposit_stake_account, emergency_pause,
     emergency_resume, emergency_unstake, initialize, liquid_unstake, merge_stakes, order_unstake,
     partial_unstake, redelegate, remove_liquidity, remove_validator, set_validator_score,
-    stake_reserve, update_active, update_deactivated, withdraw_stake_account,
+    stake_reserve, update_active, update_deactivated, withdraw_stake_account, finalize_delinquent_upgrade
 };
 use crate::marinade::rpc_marinade::RpcMarinade;
 use crate::marinade::verifiers::{
@@ -181,6 +181,7 @@ pub trait MarinadeRequestBuilder<'a, C> {
         &'a self,
         stake_account: Pubkey,
         stake_index: u32,
+        validator_index: u32,
     ) -> anyhow::Result<RequestBuilder<C>>;
 
     fn order_unstake(
@@ -230,6 +231,11 @@ pub trait MarinadeRequestBuilder<'a, C> {
         stake_index: u32,
         msol_amount: u64,
         beneficiary: Pubkey,
+    ) -> anyhow::Result<RequestBuilder<C>>;
+
+    fn finalize_delinquent_upgrade(
+        &'a self,
+        max_validators: u32,
     ) -> anyhow::Result<RequestBuilder<C>>;
 }
 
@@ -662,6 +668,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
         &'a self,
         stake_account: Pubkey,
         stake_index: u32,
+        validator_index: u32,
     ) -> anyhow::Result<RequestBuilder<C>> {
         update_deactivated(
             &self.program,
@@ -669,6 +676,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             &self.state,
             &stake_account,
             stake_index,
+            validator_index,
         )
     }
 
@@ -803,5 +811,12 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             builder = builder.signer(signer.as_ref());
         }
         Ok(builder)
+    }
+
+    fn finalize_delinquent_upgrade(
+        &'a self,
+        max_validators: u32,
+    ) -> anyhow::Result<RequestBuilder<C>> {
+        finalize_delinquent_upgrade(&self.program, &self.instance_pubkey, &self.state, max_validators)
     }
 }

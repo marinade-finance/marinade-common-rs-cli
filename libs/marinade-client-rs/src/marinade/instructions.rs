@@ -597,8 +597,8 @@ pub fn update_active<'a, C: Deref<Target = impl Signer> + Clone>(
                 treasury_msol_account: state.treasury_msol_account,
                 token_program: spl_token::ID,
                 stake_program: stake::program::ID,
+                validator_list: *state.validator_system.validator_list_address(),
             },
-            validator_list: *state.validator_system.validator_list_address(),
         })
         .args(marinade_finance_instruction::UpdateActive {
             stake_index,
@@ -612,6 +612,7 @@ pub fn update_deactivated<'a, C: Deref<Target = impl Signer> + Clone>(
     state: &State,
     stake_account: &Pubkey,
     stake_index: u32,
+    validator_index: u32,
 ) -> anyhow::Result<RequestBuilder<'a, C>> {
     Ok(program
         .request()
@@ -630,11 +631,15 @@ pub fn update_deactivated<'a, C: Deref<Target = impl Signer> + Clone>(
                 treasury_msol_account: state.treasury_msol_account,
                 token_program: spl_token::ID,
                 stake_program: stake::program::ID,
+                validator_list: *state.validator_system.validator_list_address(),
             },
             operational_sol_account: state.operational_sol_account,
             system_program: system_program::ID,
         })
-        .args(marinade_finance_instruction::UpdateDeactivated { stake_index }))
+        .args(marinade_finance_instruction::UpdateDeactivated {
+            stake_index,
+            validator_index,
+        }))
 }
 
 pub fn claim<'a, C: Deref<Target = impl Signer> + Clone>(
@@ -706,4 +711,21 @@ pub fn emergency_resume<'a, C: Deref<Target = impl Signer> + Clone>(
             pause_authority: state.pause_authority,
         })
         .args(marinade_finance_instruction::Resume {}))
+}
+
+pub fn finalize_delinquent_upgrade<'a, C: Deref<Target = impl Signer> + Clone>(
+    program: &'a Program<C>,
+    state_pubkey: &Pubkey,
+    state: &State,
+    max_validators: u32,
+) -> anyhow::Result<RequestBuilder<'a, C>> {
+    Ok(program
+        .request()
+        .accounts(marinade_finance_accounts::FinalizeDelinquentUpgrade {
+            state: state_pubkey.clone(),
+            validator_list: *state.validator_system.validator_list_address(),
+        })
+        .args(marinade_finance_instruction::FinalizeDelinquentUpgrade {
+            max_validators,
+        }))
 }
