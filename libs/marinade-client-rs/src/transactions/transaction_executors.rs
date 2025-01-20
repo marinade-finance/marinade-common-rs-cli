@@ -437,14 +437,18 @@ pub fn simulate_prepared_transaction(
             commitment: blockhash_commitment,
         },
     );
-    let latest_hash = rpc_client_blockhash.get_latest_blockhash()?;
-    let tx = prepared_transaction.sign(latest_hash).map_err(|e| {
-        error!(
-            "simulate_prepared_transaction: error signing transaction with blockhash: {}: {:?}",
-            latest_hash, e
-        );
-        ForUser(format!("Signing transaction error: {}", e))
-    })?;
+    let latest_blockhash = rpc_client_blockhash.get_latest_blockhash()?;
+    let tx = if simulate_config.sig_verify {
+        prepared_transaction.sign(latest_blockhash).map_err(|e| {
+            error!(
+                "simulate_prepared_transaction: error signing transaction with blockhash: {}: {:?}",
+                latest_blockhash, e
+            );
+            ForUser(format!("Signing transaction error: {}", e))
+        })?
+    } else {
+        prepared_transaction.partial_sign(latest_blockhash)
+    };
 
     rpc_client.simulate_transaction_with_config(tx, simulate_config)
 }
