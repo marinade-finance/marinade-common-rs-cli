@@ -13,6 +13,12 @@ pub struct SignatureBuilder {
     pub is_check_signers: bool,
 }
 
+impl Default for SignatureBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SignatureBuilder {
     pub fn new() -> Self {
         Self {

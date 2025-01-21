@@ -71,15 +71,15 @@ impl From<PubkeyOrSigner> for Arc<dyn Signer> {
     }
 }
 
-impl Into<PubkeyOrSigner> for Arc<dyn Signer> {
-    fn into(self) -> PubkeyOrSigner {
-        PubkeyOrSigner::Signer(self)
+impl From<Arc<dyn Signer>> for PubkeyOrSigner {
+    fn from(val: Arc<dyn Signer>) -> Self {
+        PubkeyOrSigner::Signer(val)
     }
 }
 
-impl Into<PubkeyOrSigner> for &Arc<dyn Signer> {
-    fn into(self) -> PubkeyOrSigner {
-        PubkeyOrSigner::Signer(self.clone())
+impl From<&Arc<dyn Signer>> for PubkeyOrSigner {
+    fn from(val: &Arc<dyn Signer>) -> Self {
+        PubkeyOrSigner::Signer(val.clone())
     }
 }
 
@@ -89,9 +89,9 @@ impl From<PubkeyOrSigner> for Pubkey {
     }
 }
 
-impl Into<PubkeyOrSigner> for Pubkey {
-    fn into(self) -> PubkeyOrSigner {
-        PubkeyOrSigner::Pubkey(self)
+impl From<Pubkey> for PubkeyOrSigner {
+    fn from(val: Pubkey) -> Self {
+        PubkeyOrSigner::Pubkey(val)
     }
 }
 
@@ -133,15 +133,15 @@ impl From<PubkeyOrKeypair> for Arc<Keypair> {
     }
 }
 
-impl Into<PubkeyOrKeypair> for Arc<Keypair> {
-    fn into(self) -> PubkeyOrKeypair {
-        PubkeyOrKeypair::Keypair(self)
+impl From<Arc<Keypair>> for PubkeyOrKeypair {
+    fn from(val: Arc<Keypair>) -> Self {
+        PubkeyOrKeypair::Keypair(val)
     }
 }
 
-impl Into<PubkeyOrKeypair> for &Arc<Keypair> {
-    fn into(self) -> PubkeyOrKeypair {
-        PubkeyOrKeypair::Keypair(self.clone())
+impl From<&Arc<Keypair>> for PubkeyOrKeypair {
+    fn from(val: &Arc<Keypair>) -> Self {
+        PubkeyOrKeypair::Keypair(val.clone())
     }
 }
 
@@ -151,8 +151,8 @@ impl From<PubkeyOrKeypair> for Pubkey {
     }
 }
 
-impl Into<PubkeyOrKeypair> for Pubkey {
-    fn into(self) -> PubkeyOrKeypair {
-        PubkeyOrKeypair::Pubkey(self)
+impl From<Pubkey> for PubkeyOrKeypair {
+    fn from(val: Pubkey) -> Self {
+        PubkeyOrKeypair::Pubkey(val)
     }
 }

@@ -375,6 +375,6 @@ mod tests {
             ],
             data: vec![],
         };
-        assert_eq!(tx_builder.check_signers(&ix).is_ok(), true);
+        assert!(tx_builder.check_signers(&ix).is_ok());
     }
 }
