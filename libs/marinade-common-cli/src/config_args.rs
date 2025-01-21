@@ -72,6 +72,20 @@ pub fn rpc_url_arg<'a, 'b>() -> Arg<'a, 'b> {
         .help(RPC_URL_ARG.help)
 }
 
+pub const SENDER_RPC_URL_ARG: ArgConstant<'static> = ArgConstant {
+    name: "sender_rpc_url",
+    long: "sender-rpc-url",
+    help: "Sender URL for Marinade's JSON RPC with Jito tips support. \
+           This enables processing of whitelisted transactions in a higher priority order.",
+};
+pub fn sender_rpc_url_arg<'a, 'b>() -> Arg<'a, 'b> {
+    Arg::with_name(SENDER_RPC_URL_ARG.name)
+        .long(SENDER_RPC_URL_ARG.long)
+        .value_name("URL")
+        .takes_value(true)
+        .help(SENDER_RPC_URL_ARG.help)
+}
+
 pub const RENT_PAYER_ARG: ArgConstant<'static> = ArgConstant {
     name: "rent_payer",
     long: "rent-payer",
