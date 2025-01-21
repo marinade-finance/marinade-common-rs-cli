@@ -23,16 +23,16 @@ pub fn add_validator<'a, C: Deref<Target = impl Signer> + Clone>(
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::AddValidator {
-            state: state_pubkey.clone(),
+            state: *state_pubkey,
             manager_authority: state.validator_system.manager_authority,
             validator_list: *state.validator_system.validator_list_address(),
             validator_vote: *validator_vote,
             duplication_flag: ValidatorRecord::find_duplication_flag(
                 &state_pubkey.clone(),
-                &validator_vote,
+                validator_vote,
             )
             .0,
-            rent_payer: rent_payer.clone(),
+            rent_payer: *rent_payer,
             clock: sysvar::clock::id(),
             rent: sysvar::rent::id(),
             system_program: system_program::ID,
@@ -73,7 +73,7 @@ pub fn set_validator_score<'a, C: Deref<Target = impl Signer> + Clone>(
         .args(marinade_finance_instruction::SetValidatorScore {
             score,
             index: validator_index,
-            validator_vote: validator_vote.clone(),
+            validator_vote: *validator_vote,
         }))
 }
 
@@ -92,14 +92,14 @@ pub fn remove_validator<'a, C: Deref<Target = impl Signer> + Clone>(
             validator_list: *state.validator_system.validator_list_address(),
             duplication_flag: ValidatorRecord::find_duplication_flag(
                 &state_pubkey.clone(),
-                &validator_vote,
+                validator_vote,
             )
             .0,
             operational_sol_account: state.operational_sol_account,
         })
         .args(marinade_finance_instruction::RemoveValidator {
             index,
-            validator_vote: validator_vote.clone(),
+            validator_vote: *validator_vote,
         }))
 }
 
@@ -119,7 +119,7 @@ pub fn emergency_unstake<'a, C: Deref<Target = impl Signer> + Clone>(
             validator_list: *state.validator_system.validator_list_address(),
             stake_list: *state.stake_system.stake_list_address(),
             stake_account: *stake_account,
-            stake_deposit_authority: StakeSystem::find_stake_deposit_authority(&state_pubkey).0,
+            stake_deposit_authority: StakeSystem::find_stake_deposit_authority(state_pubkey).0,
             clock: sysvar::clock::id(),
             stake_program: stake::program::id(),
         })
@@ -140,11 +140,11 @@ pub fn add_liquidity<'a, C: Deref<Target = impl Signer> + Clone>(
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::AddLiquidity {
-            state: state_pubkey.clone(),
+            state: *state_pubkey,
             lp_mint: state.liq_pool.lp_mint,
-            lp_mint_authority: LiqPool::find_lp_mint_authority(&state_pubkey).0,
+            lp_mint_authority: LiqPool::find_lp_mint_authority(state_pubkey).0,
             liq_pool_msol_leg: state.liq_pool.msol_leg,
-            liq_pool_sol_leg_pda: LiqPool::find_sol_leg_address(&state_pubkey).0,
+            liq_pool_sol_leg_pda: LiqPool::find_sol_leg_address(state_pubkey).0,
             transfer_from: *transfer_from,
             mint_to: *mint_to,
             system_program: system_program::ID,
@@ -162,7 +162,7 @@ pub fn change_authority<'a, C: Deref<Target = impl Signer> + Clone>(
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::ChangeAuthority {
-            state: state_pubkey.clone(),
+            state: *state_pubkey,
             admin_authority: state.admin_authority,
         })
         .args(marinade_finance_instruction::ChangeAuthority { data }))
@@ -181,12 +181,12 @@ pub fn deactivate_stake<'a, C: Deref<Target = impl Signer> + Clone>(
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::DeactivateStake {
-            state: state_pubkey.clone(),
-            reserve_pda: State::find_reserve_address(&state_pubkey).0,
+            state: *state_pubkey,
+            reserve_pda: State::find_reserve_address(state_pubkey).0,
             validator_list: *state.validator_system.validator_list_address(),
             stake_list: *state.stake_system.stake_list_address(),
             stake_account: *stake_account,
-            stake_deposit_authority: StakeSystem::find_stake_deposit_authority(&state_pubkey).0,
+            stake_deposit_authority: StakeSystem::find_stake_deposit_authority(state_pubkey).0,
             split_stake_account: *split_stake_account,
             split_stake_rent_payer: *split_stake_rent_payer,
             clock: sysvar::clock::id(),
@@ -213,15 +213,15 @@ pub fn deposit<'a, C: Deref<Target = impl Signer> + Clone>(
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::Deposit {
-            state: state_pubkey.clone(),
+            state: *state_pubkey,
             msol_mint: state.msol_mint,
-            liq_pool_sol_leg_pda: LiqPool::find_sol_leg_address(&state_pubkey).0,
+            liq_pool_sol_leg_pda: LiqPool::find_sol_leg_address(state_pubkey).0,
             liq_pool_msol_leg: state.liq_pool.msol_leg,
-            liq_pool_msol_leg_authority: LiqPool::find_msol_leg_authority(&state_pubkey).0,
-            reserve_pda: State::find_reserve_address(&state_pubkey).0,
+            liq_pool_msol_leg_authority: LiqPool::find_msol_leg_authority(state_pubkey).0,
+            reserve_pda: State::find_reserve_address(state_pubkey).0,
             transfer_from: *transfer_from,
             mint_to: *mint_to,
-            msol_mint_authority: State::find_msol_mint_authority(&state_pubkey).0,
+            msol_mint_authority: State::find_msol_mint_authority(state_pubkey).0,
             system_program: system_program::ID,
             token_program: spl_token::ID,
         })
@@ -242,20 +242,20 @@ pub fn deposit_stake_account<'a, C: Deref<Target = impl Signer> + Clone>(
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::DepositStakeAccount {
-            state: state_pubkey.clone(),
+            state: *state_pubkey,
             validator_list: *state.validator_system.validator_list_address(),
             stake_list: *state.stake_system.stake_list_address(),
             stake_account: *stake_account,
             stake_authority: *stake_authority,
             duplication_flag: ValidatorRecord::find_duplication_flag(
                 &state_pubkey.clone(),
-                &validator_vote,
+                validator_vote,
             )
             .0,
             rent_payer: *rent_payer,
             msol_mint: state.msol_mint,
             mint_to: *mint_to,
-            msol_mint_authority: State::find_msol_mint_authority(&state_pubkey).0,
+            msol_mint_authority: State::find_msol_mint_authority(state_pubkey).0,
             clock: sysvar::clock::id(),
             rent: sysvar::rent::id(),
             system_program: system_program::ID,
@@ -282,15 +282,15 @@ pub fn withdraw_stake_account<'a, C: Deref<Target = impl Signer> + Clone>(
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::WithdrawStakeAccount {
-            state: state_pubkey.clone(),
+            state: *state_pubkey,
             msol_mint: state.msol_mint,
             burn_msol_from: *burn_msol_from,
             burn_msol_authority: *burn_msol_authority,
             treasury_msol_account: state.treasury_msol_account,
             validator_list: *state.validator_system.validator_list_address(),
             stake_list: *state.stake_system.stake_list_address(),
-            stake_withdraw_authority: StakeSystem::find_stake_withdraw_authority(&state_pubkey).0,
-            stake_deposit_authority: StakeSystem::find_stake_deposit_authority(&state_pubkey).0,
+            stake_withdraw_authority: StakeSystem::find_stake_withdraw_authority(state_pubkey).0,
+            stake_deposit_authority: StakeSystem::find_stake_deposit_authority(state_pubkey).0,
             stake_account: *stake_account,
             split_stake_account: *split_stake_account,
             split_stake_rent_payer: *split_stake_rent_payer,
@@ -321,13 +321,13 @@ pub fn partial_unstake<'a, C: Deref<Target = impl Signer> + Clone>(
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::PartialUnstake {
-            state: state_pubkey.clone(),
+            state: *state_pubkey,
             validator_manager_authority: state.validator_system.manager_authority,
             validator_list: *state.validator_system.validator_list_address(),
             stake_list: *state.stake_system.stake_list_address(),
             stake_account: *stake_account,
-            stake_deposit_authority: StakeSystem::find_stake_deposit_authority(&state_pubkey).0,
-            reserve_pda: State::find_reserve_address(&state_pubkey).0,
+            stake_deposit_authority: StakeSystem::find_stake_deposit_authority(state_pubkey).0,
+            reserve_pda: State::find_reserve_address(state_pubkey).0,
             split_stake_account: *split_stake_account,
             split_stake_rent_payer: *split_stake_rent_payer,
             clock: sysvar::clock::id(),
@@ -359,7 +359,7 @@ pub fn initialize<'a, C: Deref<Target = impl Signer> + Clone>(
         .request()
         .accounts(marinade_finance_accounts::Initialize {
             state: *state,
-            reserve_pda: State::find_reserve_address(&state).0,
+            reserve_pda: State::find_reserve_address(state).0,
             stake_list: *stake_list,
             validator_list: *validator_list,
             msol_mint: *msol_mint,
@@ -369,7 +369,7 @@ pub fn initialize<'a, C: Deref<Target = impl Signer> + Clone>(
             rent: sysvar::rent::id(),
             liq_pool: marinade_finance_accounts::LiqPoolInitialize {
                 lp_mint: *lp_mint,
-                sol_leg_pda: LiqPool::find_sol_leg_address(&state).0,
+                sol_leg_pda: LiqPool::find_sol_leg_address(state).0,
                 msol_leg: *liq_pool_msol_leg,
             },
         })
@@ -388,9 +388,9 @@ pub fn liquid_unstake<'a, C: Deref<Target = impl Signer> + Clone>(
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::LiquidUnstake {
-            state: state_pubkey.clone(),
+            state: *state_pubkey,
             msol_mint: state.msol_mint,
-            liq_pool_sol_leg_pda: LiqPool::find_sol_leg_address(&state_pubkey).0,
+            liq_pool_sol_leg_pda: LiqPool::find_sol_leg_address(state_pubkey).0,
             liq_pool_msol_leg: state.liq_pool.msol_leg,
             get_msol_from: *get_msol_from,
             get_msol_from_authority: *get_msol_from_authority,
@@ -415,13 +415,13 @@ pub fn merge_stakes<'a, C: Deref<Target = impl Signer> + Clone>(
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::MergeStakes {
-            state: state_pubkey.clone(),
+            state: *state_pubkey,
             stake_list: *state.stake_system.stake_list_address(),
             validator_list: *state.validator_system.validator_list_address(),
             destination_stake: *destination_stake,
             source_stake: *source_stake,
-            stake_deposit_authority: StakeSystem::find_stake_deposit_authority(&state_pubkey).0,
-            stake_withdraw_authority: StakeSystem::find_stake_withdraw_authority(&state_pubkey).0,
+            stake_deposit_authority: StakeSystem::find_stake_deposit_authority(state_pubkey).0,
+            stake_withdraw_authority: StakeSystem::find_stake_withdraw_authority(state_pubkey).0,
             operational_sol_account: state.operational_sol_account,
             clock: sysvar::clock::id(),
             stake_history: sysvar::stake_history::id(),
@@ -450,12 +450,12 @@ pub fn redelegate<'a, C: Deref<Target = impl Signer> + Clone>(
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::ReDelegate {
-            state: state_pubkey.clone(),
+            state: *state_pubkey,
             validator_list: *state.validator_system.validator_list_address(),
             stake_list: *state.stake_system.stake_list_address(),
             stake_account: *stake_account,
-            stake_deposit_authority: StakeSystem::find_stake_deposit_authority(&state_pubkey).0,
-            reserve_pda: State::find_reserve_address(&state_pubkey).0,
+            stake_deposit_authority: StakeSystem::find_stake_deposit_authority(state_pubkey).0,
+            reserve_pda: State::find_reserve_address(state_pubkey).0,
             split_stake_account: *split_stake_account,
             split_stake_rent_payer: *split_stake_rent_payer,
             dest_validator_account: *dest_validator_account,
@@ -486,15 +486,15 @@ pub fn remove_liquidity<'a, C: Deref<Target = impl Signer> + Clone>(
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::RemoveLiquidity {
-            state: state_pubkey.clone(),
+            state: *state_pubkey,
             lp_mint: state.liq_pool.lp_mint,
             burn_from: *burn_from,
             burn_from_authority: *burn_from_authority, //owner acc is also token owner
             transfer_sol_to: *transfer_sol_to,
             transfer_msol_to: *transfer_msol_to,
-            liq_pool_sol_leg_pda: LiqPool::find_sol_leg_address(&state_pubkey).0,
+            liq_pool_sol_leg_pda: LiqPool::find_sol_leg_address(state_pubkey).0,
             liq_pool_msol_leg: state.liq_pool.msol_leg,
-            liq_pool_msol_leg_authority: LiqPool::find_msol_leg_authority(&state_pubkey).0,
+            liq_pool_msol_leg_authority: LiqPool::find_msol_leg_authority(state_pubkey).0,
             system_program: system_program::ID,
             token_program: spl_token::ID,
         })
@@ -513,7 +513,7 @@ pub fn config_lp<'a, C: Deref<Target = impl Signer> + Clone>(
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::ConfigLp {
-            state: state_pubkey.clone(),
+            state: *state_pubkey,
             admin_authority: state.admin_authority,
         })
         .args(marinade_finance_instruction::ConfigLp {
@@ -535,7 +535,7 @@ pub fn config_marinade<'a, C: Deref<Target = impl Signer> + Clone>(
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::ConfigMarinade {
-            state: state_pubkey.clone(),
+            state: *state_pubkey,
             admin_authority: state.admin_authority,
         })
         .args(marinade_finance_instruction::ConfigMarinade { params }))
@@ -553,13 +553,13 @@ pub fn stake_reserve<'a, C: Deref<Target = impl Signer> + Clone>(
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::StakeReserve {
-            state: state_pubkey.clone(),
+            state: *state_pubkey,
             validator_list: *state.validator_system.validator_list_address(),
             stake_list: *state.stake_system.stake_list_address(),
             validator_vote: *validator_vote,
-            reserve_pda: State::find_reserve_address(&state_pubkey).0,
+            reserve_pda: State::find_reserve_address(state_pubkey).0,
             stake_account: *stake_account,
-            stake_deposit_authority: StakeSystem::find_stake_deposit_authority(&state_pubkey).0,
+            stake_deposit_authority: StakeSystem::find_stake_deposit_authority(state_pubkey).0,
             rent_payer: *rent_payer,
             clock: sysvar::clock::id(),
             epoch_schedule: sysvar::epoch_schedule::ID,
@@ -584,16 +584,16 @@ pub fn update_active<'a, C: Deref<Target = impl Signer> + Clone>(
         .request()
         .accounts(marinade_finance_accounts::UpdateActive {
             common: marinade_finance_accounts::UpdateCommon {
-                state: state_pubkey.clone(),
+                state: *state_pubkey,
                 stake_list: *state.stake_system.stake_list_address(),
                 stake_account: *stake_account,
-                stake_withdraw_authority: StakeSystem::find_stake_withdraw_authority(&state_pubkey)
+                stake_withdraw_authority: StakeSystem::find_stake_withdraw_authority(state_pubkey)
                     .0,
-                reserve_pda: State::find_reserve_address(&state_pubkey).0,
+                reserve_pda: State::find_reserve_address(state_pubkey).0,
                 msol_mint: state.msol_mint,
                 clock: sysvar::clock::id(),
                 stake_history: sysvar::stake_history::ID,
-                msol_mint_authority: State::find_msol_mint_authority(&state_pubkey).0,
+                msol_mint_authority: State::find_msol_mint_authority(state_pubkey).0,
                 treasury_msol_account: state.treasury_msol_account,
                 token_program: spl_token::ID,
                 stake_program: stake::program::ID,
@@ -617,16 +617,16 @@ pub fn update_deactivated<'a, C: Deref<Target = impl Signer> + Clone>(
         .request()
         .accounts(marinade_finance_accounts::UpdateDeactivated {
             common: marinade_finance_accounts::UpdateCommon {
-                state: state_pubkey.clone(),
+                state: *state_pubkey,
                 stake_list: *state.stake_system.stake_list_address(),
                 stake_account: *stake_account,
-                stake_withdraw_authority: StakeSystem::find_stake_withdraw_authority(&state_pubkey)
+                stake_withdraw_authority: StakeSystem::find_stake_withdraw_authority(state_pubkey)
                     .0,
-                reserve_pda: State::find_reserve_address(&state_pubkey).0,
+                reserve_pda: State::find_reserve_address(state_pubkey).0,
                 msol_mint: state.msol_mint,
                 clock: sysvar::clock::id(),
                 stake_history: sysvar::stake_history::ID,
-                msol_mint_authority: State::find_msol_mint_authority(&state_pubkey).0,
+                msol_mint_authority: State::find_msol_mint_authority(state_pubkey).0,
                 treasury_msol_account: state.treasury_msol_account,
                 token_program: spl_token::ID,
                 stake_program: stake::program::ID,
@@ -646,8 +646,8 @@ pub fn claim<'a, C: Deref<Target = impl Signer> + Clone>(
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::Claim {
-            state: state_pubkey.clone(),
-            reserve_pda: State::find_reserve_address(&state_pubkey).0,
+            state: *state_pubkey,
+            reserve_pda: State::find_reserve_address(state_pubkey).0,
             ticket_account: *ticket_account,
             transfer_sol_to: *transfer_sol_to,
             system_program: system_program::ID,
@@ -668,7 +668,7 @@ pub fn order_unstake<'a, C: Deref<Target = impl Signer> + Clone>(
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::OrderUnstake {
-            state: state_pubkey.clone(),
+            state: *state_pubkey,
             msol_mint: state.msol_mint,
             burn_msol_from: *burn_msol_from,
             burn_msol_authority: *burn_msol_from_authority,
@@ -688,7 +688,7 @@ pub fn emergency_pause<'a, C: Deref<Target = impl Signer> + Clone>(
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::EmergencyPause {
-            state: state_pubkey.clone(),
+            state: *state_pubkey,
             pause_authority: state.pause_authority,
         })
         .args(marinade_finance_instruction::Pause {}))
@@ -702,7 +702,7 @@ pub fn emergency_resume<'a, C: Deref<Target = impl Signer> + Clone>(
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::EmergencyPause {
-            state: state_pubkey.clone(),
+            state: *state_pubkey,
             pause_authority: state.pause_authority,
         })
         .args(marinade_finance_instruction::Resume {}))

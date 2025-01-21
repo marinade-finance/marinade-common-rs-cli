@@ -323,8 +323,7 @@ fn execute_prepared_transaction_retry_blockhash_internal(
                 return Ok(signature);
             }
             Err(err) => {
-                last_error =
-                    anchor_client::ClientError::SolanaClientError(SolanaClientError::from(err));
+                last_error = anchor_client::ClientError::SolanaClientError(err);
                 if let anchor_client::ClientError::SolanaClientError(ce) = &last_error {
                     let to_check_err: Option<&TransactionError> = match ce.kind() {
                         ClientErrorKind::RpcError(RpcError::RpcResponseError {
