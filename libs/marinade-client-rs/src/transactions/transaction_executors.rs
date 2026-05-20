@@ -14,7 +14,7 @@ use solana_client::rpc_response::{RpcResult, RpcSimulateTransactionResult};
 use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
 use solana_sdk::signature::Signature;
 use solana_sdk::signer::Signer;
-use solana_sdk::transaction::TransactionError;
+use solana_sdk::transaction::{Transaction, TransactionError};
 use std::ops::Deref;
 
 pub fn log_execution(
@@ -64,13 +64,30 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for Reques
         rpc_client: &RpcClient,
         sig_verify: bool,
     ) -> RpcResult<RpcSimulateTransactionResult> {
-        let tx = self.signed_transaction().map_err(|err| {
-            error!(
-                "RequestBuilder#simulate: cannot build transactions from builder: {:?}",
-                err
-            );
-            ForUser(format!("Building transaction error: {}", err))
-        })?;
+        // Branch locally rather than always signing: in --print mode callers
+        // may only have pubkeys for some declared signers, so signed_transaction()
+        // would fail before the RPC is ever reached. With sig_verify=false the
+        // RPC accepts the unsigned tx as-is.
+        let tx = if sig_verify {
+            self.signed_transaction().map_err(|err| {
+                error!(
+                    "RequestBuilder#simulate: cannot build signed transaction from builder: {:?}",
+                    err
+                );
+                ForUser(format!("Building signed transaction error: {}", err))
+            })?
+        } else {
+            let instructions = self.instructions().map_err(|err| {
+                error!(
+                    "RequestBuilder#simulate: cannot build instructions from builder: {:?}",
+                    err
+                );
+                ForUser(format!("Building instructions error: {}", err))
+            })?;
+            let mut tx = Transaction::new_with_payer(&instructions, None);
+            tx.message.recent_blockhash = rpc_client.get_latest_blockhash()?;
+            tx
+        };
         rpc_client.simulate_transaction_with_config(
             &tx,
             RpcSimulateTransactionConfig {
@@ -376,8 +393,22 @@ fn execute_prepared_transaction_retry_blockhash_internal(
             }
         }
     }
-    error!("Transaction ERR send_transaction: {:?}", last_error);
-    Err(last_error)
+    let final_error = if retry_count > 0 {
+        // The "unable to confirm transaction" timeout is ambiguous on the
+        // Solana side (expired blockhash vs insufficient fee-payer funds vs
+        // other). Wrap the exhausted-retries case so callers see the retry
+        // context rather than a bare "unable to confirm" string.
+        anchor_client::ClientError::SolanaClientError(SolanaClientError::from(
+            RpcError::RpcRequestError(format!(
+                "Blockhash retry exhausted after {} attempt(s); last error: {}",
+                retry_count, last_error
+            )),
+        ))
+    } else {
+        last_error
+    };
+    error!("Transaction ERR send_transaction: {:?}", final_error);
+    Err(final_error)
 }
 
 pub fn execute_prepared_transaction(

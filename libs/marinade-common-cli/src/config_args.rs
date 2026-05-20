@@ -83,6 +83,7 @@ pub fn sender_rpc_url_arg<'a, 'b>() -> Arg<'a, 'b> {
         .long(SENDER_RPC_URL_ARG.long)
         .value_name("URL")
         .takes_value(true)
+        .validator(is_url_or_moniker)
         .help(SENDER_RPC_URL_ARG.help)
 }
 

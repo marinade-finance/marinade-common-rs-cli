@@ -127,7 +127,9 @@ impl PubkeyOrKeypair {
 impl From<PubkeyOrKeypair> for Arc<Keypair> {
     fn from(value: PubkeyOrKeypair) -> Self {
         match value {
-            PubkeyOrKeypair::Pubkey(_) => panic!("Cannot convert PubkeyOrSigner::Pubkey to Signer"),
+            PubkeyOrKeypair::Pubkey(_) => {
+                panic!("Cannot convert PubkeyOrKeypair::Pubkey to Keypair")
+            }
             PubkeyOrKeypair::Keypair(keypair) => keypair,
         }
     }

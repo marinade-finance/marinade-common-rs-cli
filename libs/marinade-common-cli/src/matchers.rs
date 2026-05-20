@@ -27,7 +27,7 @@ pub fn keypair_from_path_or_default(
         ))
     } else {
         debug!(
-            "failed to load keypair {} using default keypair {}",
+            "argument '{}' not provided; using default keypair {}",
             name,
             default_keypair.pubkey()
         );
@@ -53,7 +53,7 @@ pub fn signer_from_path_or_default(
         ))
     } else {
         debug!(
-            "failed to load signer {} using default signer {}",
+            "argument '{}' not provided; using default signer {}",
             name,
             default_signer.pubkey()
         );
