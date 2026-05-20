@@ -1,4 +1,5 @@
 use solana_sdk::pubkey::Pubkey;
+use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
 use std::sync::Arc;
 
@@ -31,7 +32,7 @@ impl Signer for DynSigner {
 }
 
 /// Keypair or Pubkey depending, could be one of that based on parameters of the CLI command.
-/// For --print-only we want to permit to pass only pubkey not the keypair in real.
+/// When --print and --simulate are set, a pubkey instead of a valid keypair can be passed.
 #[derive(Debug, Clone)]
 pub enum PubkeyOrSigner {
     Pubkey(Pubkey),
@@ -70,15 +71,15 @@ impl From<PubkeyOrSigner> for Arc<dyn Signer> {
     }
 }
 
-impl Into<PubkeyOrSigner> for Arc<dyn Signer> {
-    fn into(self) -> PubkeyOrSigner {
-        PubkeyOrSigner::Signer(self)
+impl From<Arc<dyn Signer>> for PubkeyOrSigner {
+    fn from(val: Arc<dyn Signer>) -> Self {
+        PubkeyOrSigner::Signer(val)
     }
 }
 
-impl Into<PubkeyOrSigner> for &Arc<dyn Signer> {
-    fn into(self) -> PubkeyOrSigner {
-        PubkeyOrSigner::Signer(self.clone())
+impl From<&Arc<dyn Signer>> for PubkeyOrSigner {
+    fn from(val: &Arc<dyn Signer>) -> Self {
+        PubkeyOrSigner::Signer(val.clone())
     }
 }
 
@@ -88,8 +89,70 @@ impl From<PubkeyOrSigner> for Pubkey {
     }
 }
 
-impl Into<PubkeyOrSigner> for Pubkey {
-    fn into(self) -> PubkeyOrSigner {
-        PubkeyOrSigner::Pubkey(self)
+impl From<Pubkey> for PubkeyOrSigner {
+    fn from(val: Pubkey) -> Self {
+        PubkeyOrSigner::Pubkey(val)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum PubkeyOrKeypair {
+    Pubkey(Pubkey),
+    Keypair(Arc<Keypair>),
+}
+
+impl PubkeyOrKeypair {
+    pub fn pubkey(&self) -> Pubkey {
+        match self {
+            PubkeyOrKeypair::Pubkey(pubkey) => *pubkey,
+            PubkeyOrKeypair::Keypair(keypair) => keypair.pubkey(),
+        }
+    }
+
+    pub fn try_as_keypair(&self) -> Option<Arc<Keypair>> {
+        match self {
+            PubkeyOrKeypair::Pubkey(_) => None,
+            PubkeyOrKeypair::Keypair(keypair) => Some(keypair.clone()),
+        }
+    }
+
+    pub fn use_keypair(&self) -> Option<&Arc<Keypair>> {
+        match self {
+            PubkeyOrKeypair::Pubkey(_) => None,
+            PubkeyOrKeypair::Keypair(keypair) => Some(keypair),
+        }
+    }
+}
+
+impl From<PubkeyOrKeypair> for Arc<Keypair> {
+    fn from(value: PubkeyOrKeypair) -> Self {
+        match value {
+            PubkeyOrKeypair::Pubkey(_) => panic!("Cannot convert PubkeyOrSigner::Pubkey to Signer"),
+            PubkeyOrKeypair::Keypair(keypair) => keypair,
+        }
+    }
+}
+
+impl From<Arc<Keypair>> for PubkeyOrKeypair {
+    fn from(val: Arc<Keypair>) -> Self {
+        PubkeyOrKeypair::Keypair(val)
+    }
+}
+
+impl From<&Arc<Keypair>> for PubkeyOrKeypair {
+    fn from(val: &Arc<Keypair>) -> Self {
+        PubkeyOrKeypair::Keypair(val.clone())
+    }
+}
+
+impl From<PubkeyOrKeypair> for Pubkey {
+    fn from(value: PubkeyOrKeypair) -> Self {
+        value.pubkey()
+    }
+}
+
+impl From<Pubkey> for PubkeyOrKeypair {
+    fn from(val: Pubkey) -> Self {
+        PubkeyOrKeypair::Pubkey(val)
     }
 }

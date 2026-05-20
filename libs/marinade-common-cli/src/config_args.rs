@@ -72,6 +72,20 @@ pub fn rpc_url_arg<'a, 'b>() -> Arg<'a, 'b> {
         .help(RPC_URL_ARG.help)
 }
 
+pub const SENDER_RPC_URL_ARG: ArgConstant<'static> = ArgConstant {
+    name: "sender_rpc_url",
+    long: "sender-rpc-url",
+    help: "Sender URL for Marinade's JSON RPC with Jito tips support. \
+           This enables processing of whitelisted transactions in a higher priority order.",
+};
+pub fn sender_rpc_url_arg<'a, 'b>() -> Arg<'a, 'b> {
+    Arg::with_name(SENDER_RPC_URL_ARG.name)
+        .long(SENDER_RPC_URL_ARG.long)
+        .value_name("URL")
+        .takes_value(true)
+        .help(SENDER_RPC_URL_ARG.help)
+}
+
 pub const RENT_PAYER_ARG: ArgConstant<'static> = ArgConstant {
     name: "rent_payer",
     long: "rent-payer",
@@ -136,14 +150,43 @@ pub fn instance_arg<'a, 'b>() -> Arg<'a, 'b> {
         .help(INSTANCE_ARG.help)
 }
 
-pub const PRINT_ONLY_ARG: ArgConstant<'static> = ArgConstant {
-    name: "print_only",
-    long: "print-only",
-    help: "Transactions are not executed against the cluster, the transaction content is only printed in base64 format for multisig-use in SPL Gov.",
+pub const PRINT_ARG: ArgConstant<'static> = ArgConstant {
+    name: "print",
+    long: "print",
+    help: "During the execution/simulation, the transactions are also printed in base64 format for multisig-use in SPL Gov.",
 };
-pub fn print_only_arg<'a, 'b>() -> Arg<'a, 'b> {
-    Arg::with_name(PRINT_ONLY_ARG.name)
-        .long(PRINT_ONLY_ARG.long)
+pub fn print_arg<'a, 'b>() -> Arg<'a, 'b> {
+    Arg::with_name(PRINT_ARG.name)
+        .long(PRINT_ARG.long)
         .takes_value(false)
-        .help(PRINT_ONLY_ARG.help)
+        .help(PRINT_ARG.help)
+}
+
+pub const WITH_COMPUTE_UNIT_PRICE_ARG: ArgConstant<'static> = ArgConstant {
+    name: "with_compute_unit_price",
+    long: "with-compute-unit-price",
+    help: "Set compute unit price for transaction, in increments of 0.000001 lamports per compute unit.",
+};
+pub fn with_compute_unit_price<'a, 'b>() -> Arg<'a, 'b> {
+    Arg::with_name(WITH_COMPUTE_UNIT_PRICE_ARG.name)
+        .value_name("COMPUTE-UNIT-PRICE")
+        .takes_value(true)
+        .long(WITH_COMPUTE_UNIT_PRICE_ARG.long)
+        .help(WITH_COMPUTE_UNIT_PRICE_ARG.help)
+        .default_value("0")
+}
+
+pub const BLOCKHASH_NOT_FOUND_RETRIES_ARG: ArgConstant<'static> = ArgConstant {
+    name: "blockhash_not_found_retries",
+    long: "blockhash-not-found-retries",
+    help: "Number of retries to get a blockhash when exception BlockhashNotFound is thrown on execution.",
+};
+
+pub fn blockhash_not_found_retries_arg<'a, 'b>() -> Arg<'a, 'b> {
+    Arg::with_name(BLOCKHASH_NOT_FOUND_RETRIES_ARG.name)
+        .long(BLOCKHASH_NOT_FOUND_RETRIES_ARG.long)
+        .value_name("NUMBER")
+        .takes_value(true)
+        .help(BLOCKHASH_NOT_FOUND_RETRIES_ARG.help)
+        .default_value("0")
 }

@@ -1,13 +1,39 @@
 use anyhow::anyhow;
 use clap::ArgMatches;
-use dynsigner::PubkeyOrSigner;
+use dynsigner::{PubkeyOrKeypair, PubkeyOrSigner};
 use log::debug;
 use solana_clap_utils::input_parsers::pubkey_of_signer;
-use solana_clap_utils::keypair::signer_from_path;
+use solana_clap_utils::keypair::{keypair_from_path, signer_from_path};
 use solana_remote_wallet::remote_wallet::RemoteWalletManager;
 use solana_sdk::pubkey::Pubkey;
+use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
 use std::{str::FromStr, sync::Arc};
+
+// Getting keypair from the matched name as the keypair path argument, or returns the default signer
+pub fn keypair_from_path_or_default(
+    matches: &ArgMatches<'_>,
+    name: &str,
+    default_keypair: &Arc<Keypair>,
+) -> anyhow::Result<Arc<Keypair>> {
+    if let Some(location) = matches.value_of(name) {
+        Ok(Arc::from(
+            keypair_from_path(matches, location, name, false)
+                .map_err(|e| {
+                    debug!("keypair_from_path_or_default failed: location {}, keypair name: {}, matches: {:?}: {:?}",
+                        location, name, matches, e);
+                    anyhow!("{}: arg name: {}, location: {}", e, name, location)
+                })?,
+        ))
+    } else {
+        debug!(
+            "failed to load keypair {} using default keypair {}",
+            name,
+            default_keypair.pubkey()
+        );
+        Ok(default_keypair.clone())
+    }
+}
 
 // Getting signer from the matched name as the keypair path argument, or returns the default signer
 pub fn signer_from_path_or_default(
@@ -116,6 +142,31 @@ fn pubkey_or_from_path(
     })
 }
 
+pub fn pubkey_or_keypair(
+    matches: &ArgMatches<'_>,
+    name: &str,
+) -> anyhow::Result<Option<PubkeyOrKeypair>> {
+    // when the argument provides no value then returns None
+    // when the argument provides a value then we parse and parsing error is returned as an error, not as None
+    matches.value_of(name).map_or(Ok(None), |matched_value| {
+        let parsed_keypair = keypair_from_path(matches, matched_value, name, false);
+        match parsed_keypair {
+            Ok(keypair) => Ok(Some(PubkeyOrKeypair::Keypair(Arc::from(keypair)))),
+            Err(_) => {
+                let parsed_pubkey = Pubkey::from_str(matched_value).map_err(|e| {
+                    anyhow!(
+                        "Failed to parse argument {:?}/{} as pubkey: {}",
+                        matches,
+                        name,
+                        e
+                    )
+                })?;
+                Ok(Some(PubkeyOrKeypair::Pubkey(parsed_pubkey)))
+            }
+        }
+    })
+}
+
 /// Returns keypair if the parameter can be parsed as path to a file with keypair,
 /// otherwise it parse it as a pubkey. Otherwise it fails.
 pub fn pubkey_or_signer(
@@ -144,9 +195,29 @@ pub fn pubkey_or_signer(
     })
 }
 
+pub fn match_u16(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<u16> {
+    crate::matchers::match_u16_option(matches, name)?
+        .ok_or_else(|| anyhow::Error::msg(format!("match_u16: argument '{}' missing", name)))
+}
+
+pub fn match_u16_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<Option<u16>> {
+    if let Some(value) = matches.value_of(name) {
+        let value = u16::from_str(value).map_err(|e| {
+            anyhow!(
+                "Failed to convert argument {} of value {} to u16: {:?}",
+                name,
+                value,
+                e
+            )
+        })?;
+        return Ok(Some(value));
+    }
+    Ok(None)
+}
+
 pub fn match_u32(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<u32> {
     match_u32_option(matches, name)?
-        .ok_or_else(|| anyhow::Error::msg(format!("argument '{}' missing", name)))
+        .ok_or_else(|| anyhow::Error::msg(format!("match_u32: argument '{}' missing", name)))
 }
 
 pub fn match_u32_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<Option<u32>> {
@@ -166,7 +237,7 @@ pub fn match_u32_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<
 
 pub fn match_u64(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<u64> {
     match_u64_option(matches, name)?
-        .ok_or_else(|| anyhow::Error::msg(format!("argument '{}' missing", name)))
+        .ok_or_else(|| anyhow::Error::msg(format!("match_u64: argument '{}' missing", name)))
 }
 
 pub fn match_u64_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<Option<u64>> {
@@ -186,7 +257,7 @@ pub fn match_u64_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<
 
 pub fn match_f64(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<f64> {
     match_f64_option(matches, name)?
-        .ok_or_else(|| anyhow::Error::msg(format!("argument '{}' missing", name)))
+        .ok_or_else(|| anyhow::Error::msg(format!("match_f64: argument '{}' missing", name)))
 }
 
 pub fn match_f64_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<Option<f64>> {

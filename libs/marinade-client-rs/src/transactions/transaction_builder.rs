@@ -5,7 +5,10 @@ use anyhow::anyhow;
 use log::error;
 use once_cell::sync::OnceCell;
 use solana_sdk::{
-    instruction::Instruction, packet::PACKET_DATA_SIZE, pubkey::Pubkey, signature::Signer,
+    instruction::Instruction,
+    packet::PACKET_DATA_SIZE,
+    pubkey::Pubkey,
+    signature::{Keypair, Signer},
     transaction::Transaction,
 };
 use std::ops::Deref;
@@ -27,45 +30,54 @@ pub struct TransactionBuilder {
     instruction_packs: Vec<Vec<Instruction>>,
     current_instruction_pack: OnceCell<Vec<Instruction>>,
     max_transaction_size: usize,
+    is_check_signers: bool,
 }
 
 impl TransactionBuilder {
-    pub fn new(fee_payer: Arc<dyn Signer>, max_transaction_size: usize) -> Self {
-        let mut signature_builder = SignatureBuilder::default();
+    pub fn new(fee_payer: Arc<Keypair>, max_transaction_size: usize) -> Self {
+        let mut signature_builder = SignatureBuilder::new();
+        let fee_payer = signature_builder.add_signer(fee_payer);
         let builder = Self {
-            fee_payer: signature_builder.add_signer(fee_payer),
+            fee_payer,
             signature_builder,
             instruction_packs: Vec::new(),
             current_instruction_pack: OnceCell::new(),
             max_transaction_size,
+            is_check_signers: true,
         };
         builder.current_instruction_pack.set(Vec::new()).unwrap();
         builder
+    }
+
+    pub fn with_no_signers_check(mut self) -> Self {
+        self.is_check_signers = false;
+        self.signature_builder = SignatureBuilder::new_without_check();
+        self
     }
 
     pub fn fee_payer(&self) -> Pubkey {
         self.fee_payer
     }
 
-    pub fn get_signer(&self, key: &Pubkey) -> Option<Arc<dyn Signer>> {
+    pub fn get_signer(&self, key: &Pubkey) -> Option<Arc<Keypair>> {
         self.signature_builder.get_signer(key)
     }
 
-    pub fn fee_payer_signer(&self) -> Arc<dyn Signer> {
+    pub fn fee_payer_signer(&self) -> Arc<Keypair> {
         self.get_signer(&self.fee_payer()).unwrap()
     }
 
     ///constructor, limit size to a single transaction
-    pub fn limited(fee_payer: Arc<dyn Signer>) -> Self {
+    pub fn limited(fee_payer: Arc<Keypair>) -> Self {
         Self::new(fee_payer, PACKET_DATA_SIZE)
     }
 
     ///constructor, no size limit, can be split in many transactions
-    pub fn unlimited(fee_payer: Arc<dyn Signer>) -> Self {
+    pub fn unlimited(fee_payer: Arc<Keypair>) -> Self {
         Self::new(fee_payer, 0)
     }
 
-    pub fn add_signer(&mut self, signer: Arc<dyn Signer>) -> Pubkey {
+    pub fn add_signer(&mut self, signer: Arc<Keypair>) -> Pubkey {
         self.signature_builder.add_signer(signer)
     }
 
@@ -73,13 +85,17 @@ impl TransactionBuilder {
         self.signature_builder.new_signer()
     }
 
-    pub fn add_signer_checked(&mut self, signer: &Arc<dyn Signer>) {
+    pub fn add_signer_checked(&mut self, signer: &Arc<Keypair>) {
         if !self.signature_builder.contains_key(&signer.pubkey()) {
             self.add_signer(signer.clone());
         }
     }
 
     fn check_signers(&self, instruction: &Instruction) -> Result<(), TransactionBuildError> {
+        if !self.is_check_signers {
+            return Ok(());
+        }
+
         for account in &instruction.accounts {
             if account.is_signer && !self.signature_builder.contains_key(&account.pubkey) {
                 error!(
@@ -95,6 +111,10 @@ impl TransactionBuilder {
             }
         }
         Ok(())
+    }
+
+    pub fn is_check_signers(&self) -> bool {
+        self.is_check_signers
     }
 
     #[inline]
@@ -187,10 +207,14 @@ impl TransactionBuilder {
             let instructions: Vec<Instruction> =
                 self.instruction_packs.remove(0).into_iter().collect();
             let transaction = Transaction::new_with_payer(&instructions, Some(&self.fee_payer));
-            Some(
-                PreparedTransaction::new(transaction, &self.signature_builder)
-                    .expect("Signature keys must be checked when instruction added"),
-            )
+            if self.is_check_signers() {
+                Some(
+                    PreparedTransaction::new(transaction, &self.signature_builder)
+                        .expect("Signature keys must be checked when instruction added"),
+                )
+            } else {
+                Some(PreparedTransaction::new_no_signers(transaction))
+            }
         } else {
             None
         }
@@ -244,10 +268,14 @@ impl TransactionBuilder {
             }
             transaction
         };
-        Some(
-            PreparedTransaction::new(transaction, &self.signature_builder)
-                .expect("Signature keys must be checked when instruction added"),
-        )
+        if self.is_check_signers() {
+            Some(
+                PreparedTransaction::new(transaction, &self.signature_builder)
+                    .expect("Signature keys must be checked when instruction added"),
+            )
+        } else {
+            Some(PreparedTransaction::new_no_signers(transaction))
+        }
     }
 
     pub fn build_single_combined(&mut self) -> Option<PreparedTransaction> {
@@ -315,8 +343,8 @@ mod tests {
 
     #[test]
     fn test_add_signer() {
-        let signer1: Arc<dyn Signer> = Arc::new(Keypair::new());
-        let signer2: Arc<dyn Signer> = Arc::new(Keypair::new());
+        let signer1: Arc<Keypair> = Arc::new(Keypair::new());
+        let signer2: Arc<Keypair> = Arc::new(Keypair::new());
         let mut tx_builder = TransactionBuilder::limited(Arc::new(Keypair::new()));
         tx_builder.add_signer_checked(&signer1);
         tx_builder.add_signer_checked(&signer2);
@@ -347,6 +375,6 @@ mod tests {
             ],
             data: vec![],
         };
-        assert_eq!(tx_builder.check_signers(&ix).is_ok(), true);
+        assert!(tx_builder.check_signers(&ix).is_ok());
     }
 }
