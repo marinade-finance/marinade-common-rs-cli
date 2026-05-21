@@ -51,7 +51,7 @@ impl TransactionBuilder {
 
     pub fn with_no_signers_check(mut self) -> Self {
         self.is_check_signers = false;
-        self.signature_builder = SignatureBuilder::new_without_check();
+        self.signature_builder.is_check_signers = false;
         self
     }
 
@@ -340,6 +340,16 @@ mod tests {
     use super::*;
     use solana_sdk::instruction::AccountMeta;
     use solana_sdk::signature::Keypair;
+
+    #[test]
+    fn test_with_no_signers_check_preserves_fee_payer() {
+        let fee_payer: Arc<Keypair> = Arc::new(Keypair::new());
+        let fee_payer_pubkey = fee_payer.pubkey();
+        let tx_builder = TransactionBuilder::limited(fee_payer).with_no_signers_check();
+        assert_eq!(tx_builder.fee_payer(), fee_payer_pubkey);
+        assert_eq!(tx_builder.fee_payer_signer().pubkey(), fee_payer_pubkey);
+        assert!(!tx_builder.is_check_signers());
+    }
 
     #[test]
     fn test_add_signer() {
