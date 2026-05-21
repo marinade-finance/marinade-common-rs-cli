@@ -393,24 +393,20 @@ fn execute_prepared_transaction_retry_blockhash_internal(
             }
         }
     }
-    // Only the while-condition-exit path means retries were truly exhausted;
-    // `break` paths (non-retryable error after some retries) leave retry_count
-    // <= blockhash_failure_retries. The "unable to confirm transaction" timeout
-    // is ambiguous on the Solana side (expired blockhash vs insufficient
-    // fee-payer funds vs other), so wrap the exhausted case to surface retry
-    // context rather than a bare "unable to confirm" string.
-    let final_error = if retry_count > blockhash_failure_retries {
-        anchor_client::ClientError::SolanaClientError(SolanaClientError::from(
-            RpcError::RpcRequestError(format!(
-                "Blockhash retry exhausted after {} attempt(s); last error: {}",
-                retry_count, last_error
-            )),
-        ))
+    // Return last_error as-is so downstream `err.kind()` matches (e.g.
+    // log_execution's preflight-logs branch) keep working. Log the retry
+    // exhaustion context separately rather than rewrapping into a String
+    // variant. The while-condition-exit path (retry_count > limit) means
+    // retries were truly exhausted; `break` paths leave retry_count <= limit.
+    if retry_count > blockhash_failure_retries {
+        error!(
+            "Transaction ERR send_transaction: blockhash retry exhausted after {} attempt(s); last error: {:?}",
+            retry_count, last_error
+        );
     } else {
-        last_error
-    };
-    error!("Transaction ERR send_transaction: {:?}", final_error);
-    Err(final_error)
+        error!("Transaction ERR send_transaction: {:?}", last_error);
+    }
+    Err(last_error)
 }
 
 pub fn execute_prepared_transaction(
