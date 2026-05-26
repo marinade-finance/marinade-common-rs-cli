@@ -722,7 +722,7 @@ pub fn finalize_delinquent_upgrade<'a, C: Deref<Target = impl Signer> + Clone>(
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::FinalizeDelinquentUpgrade {
-            state: state_pubkey.clone(),
+            state: *state_pubkey,
             validator_list: *state.validator_system.validator_list_address(),
         })
         .args(marinade_finance_instruction::FinalizeDelinquentUpgrade {
