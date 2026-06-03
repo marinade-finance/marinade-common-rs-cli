@@ -1,10 +1,11 @@
 #![allow(clippy::too_many_arguments)]
 use crate::marinade::instructions::{
     add_liquidity, add_validator, change_authority, claim, config_lp, config_marinade,
-    config_validator_system, deactivate_stake, deposit, deposit_stake_account, emergency_pause,
-    emergency_resume, emergency_unstake, finalize_delinquent_upgrade, initialize, liquid_unstake,
-    merge_stakes, order_unstake, partial_unstake, remove_liquidity, remove_validator,
-    set_validator_score, stake_reserve, update_active, update_deactivated, withdraw_stake_account,
+    config_validator_system, create_canonical_stake, deactivate_stake, deposit,
+    deposit_stake_account, emergency_pause, emergency_resume, emergency_unstake,
+    finalize_delinquent_upgrade, initialize, liquid_unstake, merge_stakes, order_unstake,
+    partial_unstake, remove_liquidity, remove_validator, set_validator_score, stake_reserve,
+    update_active, update_deactivated, withdraw_stake_account,
 };
 use crate::marinade::rpc_marinade::RpcMarinade;
 use crate::marinade::verifiers::{
@@ -136,6 +137,14 @@ pub trait MarinadeRequestBuilder<'a, C> {
         source_stake: Pubkey,
         source_stake_index: u32,
         validator_index: u32,
+    ) -> anyhow::Result<RequestBuilder<C>>;
+
+    fn create_canonical_stake(
+        &'a self,
+        source_stake: Pubkey,
+        source_stake_index: u32,
+        validator_index: u32,
+        validator_vote: Pubkey,
     ) -> anyhow::Result<RequestBuilder<C>>;
 
     fn remove_liquidity(
@@ -547,6 +556,24 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             validator_index,
         )?;
         Ok(builder)
+    }
+
+    fn create_canonical_stake(
+        &'a self,
+        source_stake: Pubkey,
+        source_stake_index: u32,
+        validator_index: u32,
+        validator_vote: Pubkey,
+    ) -> anyhow::Result<RequestBuilder<C>> {
+        create_canonical_stake(
+            &self.program,
+            &self.instance_pubkey,
+            &self.state,
+            &source_stake,
+            source_stake_index,
+            validator_index,
+            &validator_vote,
+        )
     }
 
     fn remove_liquidity(

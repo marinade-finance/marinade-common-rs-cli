@@ -434,6 +434,37 @@ pub fn merge_stakes<'a, C: Deref<Target = impl Signer> + Clone>(
         }))
 }
 
+pub fn create_canonical_stake<'a, C: Deref<Target = impl Signer> + Clone>(
+    program: &'a Program<C>,
+    state_pubkey: &Pubkey,
+    state: &State,
+    source_stake: &Pubkey,
+    source_stake_index: u32,
+    validator_index: u32,
+    validator_vote: &Pubkey,
+) -> anyhow::Result<RequestBuilder<'a, C>> {
+    Ok(program
+        .request()
+        .accounts(marinade_finance_accounts::CreateCanonicalStake {
+            state: *state_pubkey,
+            stake_list: *state.stake_system.stake_list_address(),
+            validator_list: *state.validator_system.validator_list_address(),
+            canonical_stake: State::find_canonical_stake_address(state_pubkey, validator_vote).0,
+            source_stake: *source_stake,
+            stake_deposit_authority: StakeSystem::find_stake_deposit_authority(state_pubkey).0,
+            stake_withdraw_authority: StakeSystem::find_stake_withdraw_authority(state_pubkey).0,
+            operational_sol_account: state.operational_sol_account,
+            clock: sysvar::clock::id(),
+            stake_history: sysvar::stake_history::id(),
+            stake_program: stake::program::ID,
+            system_program: system_program::ID,
+        })
+        .args(marinade_finance_instruction::CreateCanonicalStake {
+            source_stake_index,
+            validator_index,
+        }))
+}
+
 pub fn remove_liquidity<'a, C: Deref<Target = impl Signer> + Clone>(
     program: &'a Program<C>,
     state_pubkey: &Pubkey,
