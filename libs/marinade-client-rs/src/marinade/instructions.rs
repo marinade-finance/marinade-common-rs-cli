@@ -434,42 +434,34 @@ pub fn merge_stakes<'a, C: Deref<Target = impl Signer> + Clone>(
         }))
 }
 
-pub fn redelegate<'a, C: Deref<Target = impl Signer> + Clone>(
+pub fn create_canonical_stake<'a, C: Deref<Target = impl Signer> + Clone>(
     program: &'a Program<C>,
     state_pubkey: &Pubkey,
     state: &State,
-    stake_account: &Pubkey,
-    split_stake_account: &Pubkey,
-    split_stake_rent_payer: &Pubkey,
-    dest_validator_account: &Pubkey, // dest_validator_vote
-    redelegate_stake_account: &Pubkey,
-    stake_index: u32,
-    source_validator_index: u32,
-    dest_validator_index: u32,
+    source_stake: &Pubkey,
+    source_stake_index: u32,
+    validator_index: u32,
+    validator_vote: &Pubkey,
 ) -> anyhow::Result<RequestBuilder<'a, C>> {
     Ok(program
         .request()
-        .accounts(marinade_finance_accounts::ReDelegate {
+        .accounts(marinade_finance_accounts::CreateCanonicalStake {
             state: *state_pubkey,
-            validator_list: *state.validator_system.validator_list_address(),
             stake_list: *state.stake_system.stake_list_address(),
-            stake_account: *stake_account,
+            validator_list: *state.validator_system.validator_list_address(),
+            canonical_stake: State::find_canonical_stake_address(state_pubkey, validator_vote).0,
+            source_stake: *source_stake,
             stake_deposit_authority: StakeSystem::find_stake_deposit_authority(state_pubkey).0,
-            reserve_pda: State::find_reserve_address(state_pubkey).0,
-            split_stake_account: *split_stake_account,
-            split_stake_rent_payer: *split_stake_rent_payer,
-            dest_validator_account: *dest_validator_account,
-            redelegate_stake_account: *redelegate_stake_account,
+            stake_withdraw_authority: StakeSystem::find_stake_withdraw_authority(state_pubkey).0,
+            operational_sol_account: state.operational_sol_account,
             clock: sysvar::clock::id(),
             stake_history: sysvar::stake_history::id(),
             stake_program: stake::program::ID,
             system_program: system_program::ID,
-            stake_config: stake::config::ID,
         })
-        .args(marinade_finance_instruction::Redelegate {
-            stake_index,
-            source_validator_index,
-            dest_validator_index,
+        .args(marinade_finance_instruction::CreateCanonicalStake {
+            source_stake_index,
+            validator_index,
         }))
 }
 
@@ -597,8 +589,8 @@ pub fn update_active<'a, C: Deref<Target = impl Signer> + Clone>(
                 treasury_msol_account: state.treasury_msol_account,
                 token_program: spl_token::ID,
                 stake_program: stake::program::ID,
+                validator_list: *state.validator_system.validator_list_address(),
             },
-            validator_list: *state.validator_system.validator_list_address(),
         })
         .args(marinade_finance_instruction::UpdateActive {
             stake_index,
@@ -612,6 +604,7 @@ pub fn update_deactivated<'a, C: Deref<Target = impl Signer> + Clone>(
     state: &State,
     stake_account: &Pubkey,
     stake_index: u32,
+    validator_index: u32,
 ) -> anyhow::Result<RequestBuilder<'a, C>> {
     Ok(program
         .request()
@@ -630,11 +623,15 @@ pub fn update_deactivated<'a, C: Deref<Target = impl Signer> + Clone>(
                 treasury_msol_account: state.treasury_msol_account,
                 token_program: spl_token::ID,
                 stake_program: stake::program::ID,
+                validator_list: *state.validator_system.validator_list_address(),
             },
             operational_sol_account: state.operational_sol_account,
             system_program: system_program::ID,
         })
-        .args(marinade_finance_instruction::UpdateDeactivated { stake_index }))
+        .args(marinade_finance_instruction::UpdateDeactivated {
+            stake_index,
+            validator_index,
+        }))
 }
 
 pub fn claim<'a, C: Deref<Target = impl Signer> + Clone>(
@@ -706,4 +703,19 @@ pub fn emergency_resume<'a, C: Deref<Target = impl Signer> + Clone>(
             pause_authority: state.pause_authority,
         })
         .args(marinade_finance_instruction::Resume {}))
+}
+
+pub fn finalize_delinquent_upgrade<'a, C: Deref<Target = impl Signer> + Clone>(
+    program: &'a Program<C>,
+    state_pubkey: &Pubkey,
+    state: &State,
+    max_validators: u32,
+) -> anyhow::Result<RequestBuilder<'a, C>> {
+    Ok(program
+        .request()
+        .accounts(marinade_finance_accounts::FinalizeDelinquentUpgrade {
+            state: *state_pubkey,
+            validator_list: *state.validator_system.validator_list_address(),
+        })
+        .args(marinade_finance_instruction::FinalizeDelinquentUpgrade { max_validators }))
 }

@@ -1,10 +1,11 @@
 #![allow(clippy::too_many_arguments)]
 use crate::marinade::instructions::{
     add_liquidity, add_validator, change_authority, claim, config_lp, config_marinade,
-    config_validator_system, deactivate_stake, deposit, deposit_stake_account, emergency_pause,
-    emergency_resume, emergency_unstake, initialize, liquid_unstake, merge_stakes, order_unstake,
-    partial_unstake, redelegate, remove_liquidity, remove_validator, set_validator_score,
-    stake_reserve, update_active, update_deactivated, withdraw_stake_account,
+    config_validator_system, create_canonical_stake, deactivate_stake, deposit,
+    deposit_stake_account, emergency_pause, emergency_resume, emergency_unstake,
+    finalize_delinquent_upgrade, initialize, liquid_unstake, merge_stakes, order_unstake,
+    partial_unstake, remove_liquidity, remove_validator, set_validator_score, stake_reserve,
+    update_active, update_deactivated, withdraw_stake_account,
 };
 use crate::marinade::rpc_marinade::RpcMarinade;
 use crate::marinade::verifiers::{
@@ -138,6 +139,14 @@ pub trait MarinadeRequestBuilder<'a, C> {
         validator_index: u32,
     ) -> anyhow::Result<RequestBuilder<C>>;
 
+    fn create_canonical_stake(
+        &'a self,
+        source_stake: Pubkey,
+        source_stake_index: u32,
+        validator_index: u32,
+        validator_vote: Pubkey,
+    ) -> anyhow::Result<RequestBuilder<C>>;
+
     fn remove_liquidity(
         &'a self,
         burn_from: Pubkey,
@@ -181,6 +190,7 @@ pub trait MarinadeRequestBuilder<'a, C> {
         &'a self,
         stake_account: Pubkey,
         stake_index: u32,
+        validator_index: u32,
     ) -> anyhow::Result<RequestBuilder<C>>;
 
     fn order_unstake(
@@ -207,18 +217,6 @@ pub trait MarinadeRequestBuilder<'a, C> {
         pause_authority: &'a PubkeyOrKeypair,
     ) -> anyhow::Result<RequestBuilder<C>>;
 
-    fn redelegate(
-        &'a self,
-        stake_account: Pubkey,
-        split_stake_account: &'a PubkeyOrKeypair,
-        split_stake_rent_payer: &'a PubkeyOrKeypair,
-        dest_validator_account: Pubkey, // dest_validator_vote
-        redelegate_stake_account: &'a PubkeyOrKeypair,
-        stake_index: u32,
-        source_validator_index: u32,
-        dest_validator_index: u32,
-    ) -> anyhow::Result<RequestBuilder<C>>;
-
     fn withdraw_stake_account(
         &'a self,
         stake_account: Pubkey,
@@ -230,6 +228,11 @@ pub trait MarinadeRequestBuilder<'a, C> {
         stake_index: u32,
         msol_amount: u64,
         beneficiary: Pubkey,
+    ) -> anyhow::Result<RequestBuilder<C>>;
+
+    fn finalize_delinquent_upgrade(
+        &'a self,
+        max_validators: u32,
     ) -> anyhow::Result<RequestBuilder<C>>;
 }
 
@@ -555,6 +558,24 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
         Ok(builder)
     }
 
+    fn create_canonical_stake(
+        &'a self,
+        source_stake: Pubkey,
+        source_stake_index: u32,
+        validator_index: u32,
+        validator_vote: Pubkey,
+    ) -> anyhow::Result<RequestBuilder<C>> {
+        create_canonical_stake(
+            &self.program,
+            &self.instance_pubkey,
+            &self.state,
+            &source_stake,
+            source_stake_index,
+            validator_index,
+            &validator_vote,
+        )
+    }
+
     fn remove_liquidity(
         &'a self,
         burn_from: Pubkey,
@@ -662,6 +683,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
         &'a self,
         stake_account: Pubkey,
         stake_index: u32,
+        validator_index: u32,
     ) -> anyhow::Result<RequestBuilder<C>> {
         update_deactivated(
             &self.program,
@@ -669,6 +691,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             &self.state,
             &stake_account,
             stake_index,
+            validator_index,
         )
     }
 
@@ -731,42 +754,6 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
         Ok(builder)
     }
 
-    fn redelegate(
-        &'a self,
-        stake_account: Pubkey,
-        split_stake_account: &'a PubkeyOrKeypair,
-        split_stake_rent_payer: &'a PubkeyOrKeypair,
-        dest_validator_account: Pubkey, // dest_validator_vote
-        redelegate_stake_account: &'a PubkeyOrKeypair,
-        stake_index: u32,
-        source_validator_index: u32,
-        dest_validator_index: u32,
-    ) -> anyhow::Result<RequestBuilder<C>> {
-        let mut builder = redelegate(
-            &self.program,
-            &self.instance_pubkey,
-            &self.state,
-            &stake_account,
-            &split_stake_account.pubkey(),
-            &split_stake_rent_payer.pubkey(),
-            &dest_validator_account,
-            &redelegate_stake_account.pubkey(),
-            stake_index,
-            source_validator_index,
-            dest_validator_index,
-        )?;
-        if let Some(signer) = split_stake_account.use_keypair() {
-            builder = builder.signer(signer.as_ref());
-        }
-        if let Some(signer) = split_stake_rent_payer.use_keypair() {
-            builder = builder.signer(signer.as_ref());
-        }
-        if let Some(signer) = redelegate_stake_account.use_keypair() {
-            builder = builder.signer(signer.as_ref());
-        }
-        Ok(builder)
-    }
-
     fn withdraw_stake_account(
         &'a self,
         stake_account: Pubkey,
@@ -803,5 +790,17 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             builder = builder.signer(signer.as_ref());
         }
         Ok(builder)
+    }
+
+    fn finalize_delinquent_upgrade(
+        &'a self,
+        max_validators: u32,
+    ) -> anyhow::Result<RequestBuilder<C>> {
+        finalize_delinquent_upgrade(
+            &self.program,
+            &self.instance_pubkey,
+            &self.state,
+            max_validators,
+        )
     }
 }
