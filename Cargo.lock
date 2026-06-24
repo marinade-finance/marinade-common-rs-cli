@@ -1824,7 +1824,7 @@ dependencies = [
 [[package]]
 name = "marinade-finance"
 version = "0.1.0"
-source = "git+https://github.com/marinade-finance/liquid-staking-program.git?branch=main#3e7c0904945a9fd6ddda6eddf10e19ab5b717a81"
+source = "git+https://github.com/marinade-finance/liquid-staking-program.git?branch=mainnet#6c1b6454697634dddd69968a4dffe663480de7dd"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
