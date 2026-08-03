@@ -1,3 +1,5 @@
+// the oversized Err variants are foreign solana_client/anchor_client types; boxing them changes the public API
+#![allow(clippy::result_large_err)]
 use crate::transactions::prepared_transaction::PreparedTransaction;
 use crate::transactions::transaction_builder::TransactionBuilder;
 use crate::transactions::transaction_instruction::print_base64;
@@ -21,7 +23,7 @@ pub fn log_execution(
     execution_result: &anyhow::Result<Signature, anchor_client::ClientError>,
 ) -> anyhow::Result<()> {
     match execution_result {
-        Ok(signature) => info!("Transaction {}", signature),
+        Ok(signature) => info!("Transaction {signature}"),
         Err(err) => {
             if let anchor_client::ClientError::SolanaClientError(ce) = &err {
                 if let ClientErrorKind::RpcError(RpcError::RpcResponseError {
@@ -38,13 +40,13 @@ pub fn log_execution(
                     ..
                 }) = ce.kind()
                 {
-                    error!("Solana client error: {}", ce);
+                    error!("Solana client error: {ce}");
                     for log in logs {
-                        error!("Log: {}", log);
+                        error!("Log: {log}");
                     }
                 }
             }
-            bail!("Transaction error: {:?}", err);
+            bail!("Transaction error: {err:?}");
         }
     }
     Ok(())
@@ -71,18 +73,14 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for Reques
         let tx = if sig_verify {
             self.signed_transaction().map_err(|err| {
                 error!(
-                    "RequestBuilder#simulate: cannot build signed transaction from builder: {:?}",
-                    err
+                    "RequestBuilder#simulate: cannot build signed transaction from builder: {err:?}"
                 );
-                ForUser(format!("Building signed transaction error: {}", err))
+                ForUser(format!("Building signed transaction error: {err}"))
             })?
         } else {
             let instructions = self.instructions().map_err(|err| {
-                error!(
-                    "RequestBuilder#simulate: cannot build instructions from builder: {:?}",
-                    err
-                );
-                ForUser(format!("Building instructions error: {}", err))
+                error!("RequestBuilder#simulate: cannot build instructions from builder: {err:?}");
+                ForUser(format!("Building instructions error: {err}"))
             })?;
             let mut tx = Transaction::new_with_payer(&instructions, None);
             tx.message.recent_blockhash = rpc_client.get_latest_blockhash()?;
@@ -105,18 +103,18 @@ pub fn log_simulation(
         Ok(result) => {
             if let Some(logs) = &result.value.logs {
                 for log in logs {
-                    debug!("Log: {}", log);
+                    debug!("Log: {log}");
                 }
             }
             if result.value.err.is_some() {
-                error!("Transaction ERR {:?}", result);
+                error!("Transaction ERR {result:?}");
                 bail!("Transaction error: {}", result.value.err.as_ref().unwrap());
             } else {
                 info!("Transaction simulation Ok");
             }
         }
         Err(err) => {
-            error!("Transaction error: {}", err);
+            error!("Transaction error: {err}");
             if let ClientErrorKind::RpcError(RpcError::RpcResponseError {
                 data:
                     RpcResponseErrorData::SendTransactionPreflightFailure(
@@ -132,11 +130,11 @@ pub fn log_simulation(
             }) = err.kind()
             {
                 for log in logs {
-                    error!("Log: {}", log);
+                    error!("Log: {log}");
                 }
-                error!("Transaction ERR {:?}", err);
+                error!("Transaction ERR {err:?}");
             }
-            bail!("Transaction error: {}", err);
+            bail!("Transaction error: {err}");
         }
     }
     Ok(())
@@ -305,8 +303,7 @@ fn execute_prepared_transaction_internal(
     let latest_hash = rpc_client.get_latest_blockhash()?;
     let tx = prepared_transaction.sign(latest_hash).map_err(|e| {
         error!(
-            "execute_prepared_transaction: error signing transaction with blockhash: {}: {:?}",
-            latest_hash, e
+            "execute_prepared_transaction: error signing transaction with blockhash: {latest_hash}: {e:?}"
         );
         SolanaClientError::from(e)
     })?;
@@ -356,8 +353,7 @@ fn execute_prepared_transaction_retry_blockhash_internal(
                             ..
                         }) => {
                             debug!(
-                                "Failed to send transaction: {:?}, logs: {:?}, accounts: {:?}",
-                                transaction_error, logs, accounts
+                                "Failed to send transaction: {transaction_error:?}, logs: {logs:?}, accounts: {accounts:?}"
                             );
                             transaction_error.as_ref()
                         }
@@ -379,8 +375,7 @@ fn execute_prepared_transaction_retry_blockhash_internal(
                     if let Some(tx_err) = to_check_err {
                         if *tx_err == TransactionError::BlockhashNotFound {
                             debug!(
-                                "Retried attempt #{}/{} to send transaction with error: {:?} ",
-                                retry_count, blockhash_failure_retries, tx_err
+                                "Retried attempt #{retry_count}/{blockhash_failure_retries} to send transaction with error: {tx_err:?} "
                             );
                             // retry
                             retry_count += 1;
@@ -400,11 +395,10 @@ fn execute_prepared_transaction_retry_blockhash_internal(
     // retries were truly exhausted; `break` paths leave retry_count <= limit.
     if retry_count > blockhash_failure_retries {
         error!(
-            "Transaction ERR send_transaction: blockhash retry exhausted after {} attempt(s); last error: {:?}",
-            retry_count, last_error
+            "Transaction ERR send_transaction: blockhash retry exhausted after {retry_count} attempt(s); last error: {last_error:?}"
         );
     } else {
-        error!("Transaction ERR send_transaction: {:?}", last_error);
+        error!("Transaction ERR send_transaction: {last_error:?}");
     }
     Err(last_error)
 }
@@ -469,10 +463,9 @@ pub fn simulate_prepared_transaction(
     let tx = if simulate_config.sig_verify {
         prepared_transaction.sign(latest_blockhash).map_err(|e| {
             error!(
-                "simulate_prepared_transaction: error signing transaction with blockhash: {}: {:?}",
-                latest_blockhash, e
+                "simulate_prepared_transaction: error signing transaction with blockhash: {latest_blockhash}: {e:?}"
             );
-            ForUser(format!("Signing transaction error: {}", e))
+            ForUser(format!("Signing transaction error: {e}"))
         })?
     } else {
         prepared_transaction.partial_sign(latest_blockhash)

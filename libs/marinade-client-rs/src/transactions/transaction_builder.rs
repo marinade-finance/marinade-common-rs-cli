@@ -153,10 +153,7 @@ impl TransactionBuilder {
         request_builder: RequestBuilder<C>,
     ) -> anyhow::Result<&mut Self> {
         let instructions = request_builder.instructions().map_err(|e| {
-            error!(
-                "add_instructions_from_builder: error building instructions: {:?}",
-                e
-            );
+            error!("add_instructions_from_builder: error building instructions: {e:?}");
             anyhow!(e)
         })?;
         self.add_instructions(instructions)?;
@@ -247,7 +244,7 @@ impl TransactionBuilder {
             let mut instructions: Vec<Instruction> =
                 self.instruction_packs.remove(0).into_iter().collect();
             let mut transaction = Transaction::new_with_payer(&instructions, Some(&self.fee_payer));
-            while let Some(next_pack) = self.instruction_packs.get(0) {
+            while let Some(next_pack) = self.instruction_packs.first() {
                 let next_instructions: Vec<Instruction> = next_pack.to_vec();
                 // Try to add next pack
                 instructions.extend(next_instructions.into_iter());

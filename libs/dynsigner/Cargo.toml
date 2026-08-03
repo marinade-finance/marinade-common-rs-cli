@@ -2,6 +2,8 @@
 name = "dynsigner"
 version = "0.1.0"
 edition = "2021"
+publish = false
 
 [dependencies]
-solana-sdk = "1.14.18"
+# capped at the 1.14 line: anchor-spl 0.27 (pinned by the liquid-staking-program dep) breaks on solana-program >= 1.16 borsh
+solana-sdk = "~1.14.18"

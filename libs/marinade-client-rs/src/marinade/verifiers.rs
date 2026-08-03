@@ -31,8 +31,7 @@ pub fn verify_rent_payer(rpc_client: &RpcClient, rent_payer: &Pubkey) -> anyhow:
     let rent_account = rpc_client.get_account(rent_payer)?;
     if rent_account.owner != system_program::ID {
         bail!(
-            "verify_rent_payer: provided rent payer {} address must be a system account",
-            rent_payer
+            "verify_rent_payer: provided rent payer {rent_payer} address must be a system account"
         )
     }
     Ok(())

@@ -1,0 +1,251 @@
+# Repo-local cargo-deny policy. The org-wide static-analysis workflow
+# (marinade-finance/.github) uses this file when present and otherwise fetches
+# the org config. It mirrors that org policy and adds the exceptions this repo's
+# dependency tree needs.
+#
+# Everything appended below is reachable only through solana 1.14 / anchor 0.27.
+# Both are capped by anchor-spl 0.27, which the liquid-staking-program `mainnet`
+# git dep pins and which does not compile against solana-program >= 1.16 (borsh
+# 0.9 vs 0.10). Upgrading the on-chain program's anchor version is the single
+# change that retires most of these entries.
+
+[advisories]
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+yanked = "deny"
+# All ignored advisories are unfixable transitive dependencies pulled in
+# through the Solana / Anchor / SPL ecosystem (solana-sdk, solana-zk-sdk,
+# spl-token-2022, anchor-lang, …). Revisit when the upstream Solana crates
+# upgrade past these.
+ignore = [
+  # ed25519-dalek <2.0 — public-key oracle attack. solana-sdk pins 1.x.
+  "RUSTSEC-2022-0093",
+  # curve25519-dalek timing variability in Scalar*::sub. Solana-internal.
+  "RUSTSEC-2024-0344",
+  # atty unmaintained. Pulled by solana-logger via env_logger 0.9.
+  "RUSTSEC-2024-0375",
+  # derivative unmaintained. Pulled via ark-ff / ark-ec.
+  "RUSTSEC-2024-0388",
+  # paste unmaintained. Pulled via solana-program / anchor-lang.
+  "RUSTSEC-2024-0436",
+  # number_prefix unmaintained. Pulled via indicatif.
+  "RUSTSEC-2025-0119",
+  # bincode 1.x unmaintained. Pulled via solana-sdk.
+  "RUSTSEC-2025-0141",
+  # libsecp256k1 unmaintained. Pulled via solana-sdk.
+  "RUSTSEC-2025-0161",
+  # rand unsoundness with custom logger. Pulled via solana-sdk / spl-pod.
+  "RUSTSEC-2026-0097",
+  # rustls-webpki 0.101.x (EOL) cert-validation bugs: URI/wildcard name
+  # constraints and a reachable CRL-parsing panic. Fixed in the 0.102/0.103
+  # lines but the 0.101 line is end-of-life. Pulled via the old rustls 0.21
+  # / tokio-tungstenite 0.20 stack that solana-pubsub-client still pins.
+  # Drop these once the Solana websocket client upgrades tungstenite/rustls.
+  "RUSTSEC-2026-0098",
+  "RUSTSEC-2026-0099",
+  "RUSTSEC-2026-0104",
+  # rustls-webpki <0.103.10 CRL distribution-point matching bug. The 0.103
+  # line is patched (repos pick up 0.103.13 via `cargo update`); the stuck
+  # 0.102.x is pulled via gcp-bigquery-client -> yup-oauth2 -> rustls 0.22.
+  # Revisit when gcp-bigquery-client moves to a rustls 0.23 release.
+  "RUSTSEC-2026-0049",
+  # Unmaintained crates pinned deep in the Solana validator stack
+  # (solana-runtime / solana-ledger / solana-storage-bigtable), reached via
+  # the snapshot-parser git dep, plus the reqwest 0.11 / gcp-bigquery-client
+  # TLS stack. No maintained drop-in at the versions those crates pin; revisit
+  # when the upstream Solana / reqwest crates move forward.
+  # instant — unmaintained. Pulled via backoff -> solana-storage-bigtable.
+  "RUSTSEC-2024-0384",
+  # backoff — unmaintained. Pulled via solana-storage-bigtable.
+  "RUSTSEC-2025-0012",
+  # proc-macro-error2 — unmaintained. Pulled via aquamarine -> solana-runtime.
+  "RUSTSEC-2026-0173",
+  # rustls-pemfile — unmaintained. Pulled via reqwest 0.11 (gcp-bigquery-client).
+  "RUSTSEC-2025-0134",
+  # ansi_term — unmaintained. Pulled via clap 2.x, which the Solana CLI
+  # helper crates (solana-clap-utils -> solana-cli-config / solana-cli-output)
+  # still depend on. Goes away when Solana's CLI crates move off clap 2.
+  "RUSTSEC-2021-0139",
+  # proc-macro-error — unmaintained, build-time only (proc-macro dep of
+  # utoipa-gen < 4). Repos on utoipa >= 4 don't pull it; bumping utoipa past
+  # 3.x is the real fix where the OpenAPI migration is worth it.
+  "RUSTSEC-2024-0370",
+
+  # --- repo-local additions, all locked by the anchor-spl 0.27 / solana 1.14 cap ---
+  # borsh 0.9 ZST unsoundness. Patched in 0.10.4; anchor-lang / anchor-spl 0.27
+  # pin the 0.9 line, and marinade-client-rs must use the same borsh as the
+  # on-chain program's account types.
+  "RUSTSEC-2023-0033",
+  # dlopen_derive unmaintained, no patched release. Pulled via dlopen ->
+  # solana-perf.
+  "RUSTSEC-2023-0051",
+  # fxhash unmaintained, no patched release. Pulled via quinn / quinn-proto 0.8.
+  "RUSTSEC-2025-0057",
+  # quinn-proto 0.8 DoS (server accept loop, endpoint handling) and unbounded
+  # out-of-order stream reassembly. No patch in the 0.8 line; solana-streamer
+  # 1.14 pins quinn 0.8. Solana 1.17 moved to quinn 0.10.
+  "RUSTSEC-2023-0063",
+  "RUSTSEC-2026-0037",
+  "RUSTSEC-2026-0185",
+  # ring 0.16 — AES panic under overflow checks, and the whole pre-0.17 line is
+  # unmaintained. Reached through rustls 0.20 and quinn 0.8, both of which
+  # require ring 0.16 specifically.
+  "RUSTSEC-2025-0009",
+  "RUSTSEC-2025-0010",
+  # rustls complete_io infinite loop. Patched from 0.21.11 onwards; the 0.20
+  # line got no fix and is what quinn 0.8 / tokio-tungstenite 0.17 pin.
+  "RUSTSEC-2024-0336",
+  # tungstenite 0.17 DoS on oversized frames. Patched in 0.20.1; solana-client
+  # 1.14's pubsub client pins tokio-tungstenite 0.17.
+  "RUSTSEC-2023-0065",
+  # yaml-rust unmaintained, no patched release. Pulled via serde_yaml 0.8, which
+  # solana-cli-config 1.14 pins.
+  "RUSTSEC-2024-0320",
+]
+
+# Permissive-only allow list. Anything copyleft (GPL/LGPL/AGPL/EUPL/EPL),
+# source-disclosure-required, or commercial-restricting must NOT be added
+# without an explicit security review — the goal is that downstream consumers
+# can ship binaries built from this tree without source-disclosure obligations.
+[licenses]
+allow = [
+  # Classic permissive
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  # Boost — permissive, no patent grant. Used as alternative by `ryu`.
+  "BSL-1.0",
+  # Public-domain-equivalents. Used as alternatives by csv, aho-corasick,
+  # memchr, termcolor, walkdir, adler2, constant_time_eq, …
+  "0BSD",
+  "Unlicense",
+  "MIT-0",
+  "CC0-1.0",
+  # Weak copyleft, file-level — file-level disclosure only.
+  "MPL-2.0",
+  # zlib (libz-rs-sys / zlib-rs and tinyvec/bytemuck/cfg_eval as alternative).
+  "Zlib",
+  # ICU / idna stack pulled in via reqwest -> url -> idna.
+  "Unicode-3.0",
+  # webpki-roots ships the Mozilla CA bundle.
+  "CDLA-Permissive-2.0",
+]
+confidence-threshold = 0.93
+# Scoped per-crate allowances for licenses deliberately kept out of the org-wide
+# `allow` list above.
+exceptions = [
+  # OpenSSL/SSLeay covers the BoringSSL-derived C and assembly inside ring 0.16.
+  # Permissive with an advertising clause — attribution only, no source
+  # disclosure, so it satisfies the policy goal stated above. Not org-wide
+  # allowed because ring 0.17 dropped the requirement and no other crate here
+  # needs it.
+  { crate = "ring", allow = ["OpenSSL"] },
+  # marinade-finance is Marinade's own on-chain program under the Medium Rare
+  # Foundation source-available license: non-commercial use only, commercial use
+  # by separate agreement. First-party, so not a third-party supply-chain
+  # concern, but it is emphatically NOT permissive and must never be clarified
+  # as Apache-2.0 or added to the org-wide allow list.
+  { crate = "marinade-finance", allow = ["LicenseRef-Marinade-MediumRare"] },
+]
+# First-party workspace crates are routinely unpublished (`publish = false`)
+# and carry no `license` field — they're internal binaries, integration-test
+# crates, and not-yet-released SDKs. Skip the license check for those rather
+# than forcing every repo to stamp a license on internal crates just to make
+# the supply-chain license gate (which is about third-party deps) pass.
+private = { ignore = true }
+
+# Clarify the license for crates that don't declare one in the relevant
+# release's manifest but are licensed upstream. Each expression below is a
+# verified, permissive license:
+#  - mpl-token-metadata 5.x ships without a license field despite Metaplex
+#    publishing it under Apache-2.0. This is third-party, so clarifying here
+#    is the right long-term home.
+#  - TEMPORARY: the marinade-finance first-party crates below
+#    (solana-transaction-*, solana-snapshot-parser) have no `license` field in
+#    their own Cargo.toml. The real fix is to add `license = "Apache-2.0"` in
+#    those repos directly; remove these entries once that lands and the
+#    consuming repos re-pin. Tracked as a follow-up — see the open PRs.
+[[licenses.clarify]]
+crate = "mpl-token-metadata"
+expression = "Apache-2.0"
+license-files = []
+
+# TEMP (fix upstream, then delete): marinade-finance crates missing a license field.
+[[licenses.clarify]]
+crate = "snapshot-parser"
+expression = "Apache-2.0"
+license-files = []
+
+[[licenses.clarify]]
+crate = "snapshot-parser-validator-cli"
+expression = "Apache-2.0"
+license-files = []
+
+[[licenses.clarify]]
+crate = "solana-transaction-builder"
+expression = "Apache-2.0"
+license-files = []
+
+[[licenses.clarify]]
+crate = "solana-transaction-builder-executor"
+expression = "Apache-2.0"
+license-files = []
+
+[[licenses.clarify]]
+crate = "solana-transaction-executor"
+expression = "Apache-2.0"
+license-files = []
+
+# Crates whose LICENSE file is a hand-written multi-license notice that askalono
+# cannot resolve to an SPDX expression. Both expressions below were read off the
+# shipped LICENSE files.
+# ring 0.16.20: ISC for Brian Smith's Rust code, OpenSSL + SSLeay for the
+# BoringSSL-derived crypto, MIT for third_party/fiat.
+[[licenses.clarify]]
+crate = "ring@0.16.20"
+expression = "MIT AND ISC AND OpenSSL"
+license-files = []
+
+# webpki 0.22.4: ISC for the crate, BSD-3-Clause for the Chromium test data
+# under third-party/chromium.
+[[licenses.clarify]]
+crate = "webpki@0.22.4"
+expression = "ISC AND BSD-3-Clause"
+license-files = []
+
+# marinade-finance carries no `license` field and its repository ships
+# LICENSE.md, a bespoke source-available licence (Medium Rare Foundation,
+# non-commercial use only). Named as a LicenseRef because it has no SPDX id; see
+# the scoped exception above.
+[[licenses.clarify]]
+crate = "marinade-finance"
+expression = "LicenseRef-Marinade-MediumRare"
+license-files = []
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# Path dependencies between workspace members are conventionally declared
+# without a version (`foo = { path = "../foo" }`), which cargo-deny would
+# otherwise flag as a wildcard. Allow wildcards *only* for path deps; a
+# wildcard on a crates.io dependency is still denied.
+allow-wildcard-paths = true
+deny = []
+skip = []
+skip-tree = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
+# First-party crates are routinely consumed as git dependencies pinned to a
+# tag/branch (e.g. solana-transaction-builder, solana-snapshot-parser) before
+# they're ever published to crates.io. Trust the whole marinade-finance org as
+# a git source rather than maintaining a per-repo allow-git URL list. Any other
+# git source remains denied.
+[sources.allow-org]
+github = ["marinade-finance"]
