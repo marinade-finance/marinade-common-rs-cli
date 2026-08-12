@@ -73,10 +73,10 @@ impl SignatureBuilder {
                     key, self.signers.keys().collect::<Vec<&Pubkey>>()
                 );
                 if self.is_check_signers {
-                    error!("{}", error_msg);
+                    error!("{error_msg}");
                     return Err(SignerError::NotEnoughSigners);
                 } else {
-                    debug!("{}", error_msg);
+                    debug!("{error_msg}");
                 }
             }
         }

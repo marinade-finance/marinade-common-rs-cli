@@ -20,9 +20,8 @@ pub fn keypair_from_path_or_default(
         Ok(Arc::from(
             keypair_from_path(matches, location, name, false)
                 .map_err(|e| {
-                    debug!("keypair_from_path_or_default failed: location {}, keypair name: {}, matches: {:?}: {:?}",
-                        location, name, matches, e);
-                    anyhow!("{}: arg name: {}, location: {}", e, name, location)
+                    debug!("keypair_from_path_or_default failed: location {location}, keypair name: {name}, matches: {matches:?}: {e:?}");
+                    anyhow!("{e}: arg name: {name}, location: {location}")
                 })?,
         ))
     } else {
@@ -46,9 +45,8 @@ pub fn signer_from_path_or_default(
         Ok(Arc::from(
             signer_from_path(matches, location, name, wallet_manager)
                 .map_err(|e| {
-                    debug!("signer_from_path_or_default failed: location {}, keypair name: {}, matches: {:?}: {:?}",
-                        location, name, matches, e);
-                    anyhow!("{}: arg name: {}, location: {}", e, name, location)
+                    debug!("signer_from_path_or_default failed: location {location}, keypair name: {name}, matches: {matches:?}: {e:?}");
+                    anyhow!("{e}: arg name: {name}, location: {location}")
                 })?,
         ))
     } else {
@@ -68,9 +66,7 @@ pub fn pubkey_or_of_signer(
     wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
 ) -> anyhow::Result<Pubkey> {
     pubkey_or_of_signer_optional(matches, name, wallet_manager)
-        .map(|pubkey| {
-            pubkey.ok_or_else(|| anyhow!("Value for argument '{}' was not provided", name))
-        })
+        .map(|pubkey| pubkey.ok_or_else(|| anyhow!("Value for argument '{name}' was not provided")))
         .unwrap_or_else(Err)
 }
 
@@ -82,15 +78,12 @@ pub fn pubkey_or_of_signer_optional(
 ) -> anyhow::Result<Option<Pubkey>> {
     matches.value_of(name).map_or(Ok(None), |matched_value| {
         let pubkey = Pubkey::from_str(matched_value).or_else(|e| {
-            debug!("pubkey_or_of_signer_optional failed to load as pubkey {:?}, trying pubkey of signer: {:?}",
-                matched_value, e);
+            debug!("pubkey_or_of_signer_optional failed to load as pubkey {matched_value:?}, trying pubkey of signer: {e:?}");
             pubkey_of_signer(matches, name, wallet_manager)
-                .map_err(|err| anyhow!("{}: {}", err, matched_value))?
+                .map_err(|err| anyhow!("{err}: {matched_value}"))?
                 .ok_or_else(|| {
                     anyhow!(
-                        "Invalid argument '{}' of value '{}' provided",
-                        name,
-                        matched_value
+                        "Invalid argument '{name}' of value '{matched_value}' provided"
                     )
                 })
         })?;
@@ -126,17 +119,11 @@ fn pubkey_or_from_path(
 ) -> anyhow::Result<Pubkey> {
     Pubkey::from_str(value_or_path).or_else(|e| {
         debug!(
-            "pubkey_or_from_path failed to load as pubkey {:?}, trying signer: {:?}",
-            value_or_path, e
+            "pubkey_or_from_path failed to load as pubkey {value_or_path:?}, trying signer: {e:?}"
         );
         let signer =
             signer_from_path(matches, value_or_path, name, wallet_manager).map_err(|err| {
-                anyhow!(
-                    "Invalid argument name: {}, value_or_path: {}, err: {}",
-                    name,
-                    value_or_path,
-                    err
-                )
+                anyhow!("Invalid argument name: {name}, value_or_path: {value_or_path}, err: {err}")
             })?;
         Ok(signer.pubkey())
     })
@@ -154,12 +141,7 @@ pub fn pubkey_or_keypair(
             Ok(keypair) => Ok(Some(PubkeyOrKeypair::Keypair(Arc::from(keypair)))),
             Err(_) => {
                 let parsed_pubkey = Pubkey::from_str(matched_value).map_err(|e| {
-                    anyhow!(
-                        "Failed to parse argument {:?}/{} as pubkey: {}",
-                        matches,
-                        name,
-                        e
-                    )
+                    anyhow!("Failed to parse argument {matches:?}/{name} as pubkey: {e}")
                 })?;
                 Ok(Some(PubkeyOrKeypair::Pubkey(parsed_pubkey)))
             }
@@ -182,12 +164,7 @@ pub fn pubkey_or_signer(
             Ok(signer) => Ok(Some(PubkeyOrSigner::Signer(Arc::from(signer)))),
             Err(_) => {
                 let parsed_pubkey = Pubkey::from_str(matched_value).map_err(|e| {
-                    anyhow!(
-                        "Failed to parse argument {:?}/{} as pubkey: {}",
-                        matches,
-                        name,
-                        e
-                    )
+                    anyhow!("Failed to parse argument {matches:?}/{name} as pubkey: {e}")
                 })?;
                 Ok(Some(PubkeyOrSigner::Pubkey(parsed_pubkey)))
             }
@@ -197,18 +174,13 @@ pub fn pubkey_or_signer(
 
 pub fn match_u16(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<u16> {
     crate::matchers::match_u16_option(matches, name)?
-        .ok_or_else(|| anyhow::Error::msg(format!("match_u16: argument '{}' missing", name)))
+        .ok_or_else(|| anyhow::Error::msg(format!("match_u16: argument '{name}' missing")))
 }
 
 pub fn match_u16_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<Option<u16>> {
     if let Some(value) = matches.value_of(name) {
         let value = u16::from_str(value).map_err(|e| {
-            anyhow!(
-                "Failed to convert argument {} of value {} to u16: {:?}",
-                name,
-                value,
-                e
-            )
+            anyhow!("Failed to convert argument {name} of value {value} to u16: {e:?}")
         })?;
         return Ok(Some(value));
     }
@@ -217,18 +189,13 @@ pub fn match_u16_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<
 
 pub fn match_u32(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<u32> {
     match_u32_option(matches, name)?
-        .ok_or_else(|| anyhow::Error::msg(format!("match_u32: argument '{}' missing", name)))
+        .ok_or_else(|| anyhow::Error::msg(format!("match_u32: argument '{name}' missing")))
 }
 
 pub fn match_u32_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<Option<u32>> {
     if let Some(value) = matches.value_of(name) {
         let value = u32::from_str(value).map_err(|e| {
-            anyhow!(
-                "Failed to convert argument {} of value {} to u32: {:?}",
-                name,
-                value,
-                e
-            )
+            anyhow!("Failed to convert argument {name} of value {value} to u32: {e:?}")
         })?;
         return Ok(Some(value));
     }
@@ -237,18 +204,13 @@ pub fn match_u32_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<
 
 pub fn match_u64(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<u64> {
     match_u64_option(matches, name)?
-        .ok_or_else(|| anyhow::Error::msg(format!("match_u64: argument '{}' missing", name)))
+        .ok_or_else(|| anyhow::Error::msg(format!("match_u64: argument '{name}' missing")))
 }
 
 pub fn match_u64_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<Option<u64>> {
     if let Some(value) = matches.value_of(name) {
         let value = u64::from_str(value).map_err(|e| {
-            anyhow!(
-                "Failed to convert argument {} of value {} to u64: {:?}",
-                name,
-                value,
-                e
-            )
+            anyhow!("Failed to convert argument {name} of value {value} to u64: {e:?}")
         })?;
         return Ok(Some(value));
     }
@@ -257,18 +219,13 @@ pub fn match_u64_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<
 
 pub fn match_f64(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<f64> {
     match_f64_option(matches, name)?
-        .ok_or_else(|| anyhow::Error::msg(format!("match_f64: argument '{}' missing", name)))
+        .ok_or_else(|| anyhow::Error::msg(format!("match_f64: argument '{name}' missing")))
 }
 
 pub fn match_f64_option(matches: &ArgMatches<'_>, name: &str) -> anyhow::Result<Option<f64>> {
     if let Some(value) = matches.value_of(name) {
         let value = f64::from_str(value).map_err(|e| {
-            anyhow!(
-                "Failed to convert argument {} of value {} to f64: {:?}",
-                name,
-                value,
-                e
-            )
+            anyhow!("Failed to convert argument {name} of value {value} to f64: {e:?}")
         })?;
         return Ok(Some(value));
     }
