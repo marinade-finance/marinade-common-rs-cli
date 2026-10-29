@@ -24,7 +24,7 @@ impl<C: Deref<Target = impl Signer> + Clone> RpcMarinade<C> {
         program_pubkey: Pubkey,
         instance_pubkey: Pubkey,
     ) -> anyhow::Result<Self> {
-        let program = anchor_client.program(program_pubkey);
+        let program = anchor_client.program(program_pubkey)?;
         let state: State = program.account(instance_pubkey)?;
         Ok(Self {
             client: program.rpc(),

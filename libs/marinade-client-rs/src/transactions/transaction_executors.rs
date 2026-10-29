@@ -32,9 +32,7 @@ pub fn log_execution(
                             RpcSimulateTransactionResult {
                                 err: _,
                                 logs: Some(logs),
-                                accounts: _,
-                                return_data: _,
-                                units_consumed: _,
+                                ..
                             },
                         ),
                     ..
@@ -60,7 +58,9 @@ pub trait TransactionSimulator {
     ) -> RpcResult<RpcSimulateTransactionResult>;
 }
 
-impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for RequestBuilder<'a, C> {
+impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator
+    for RequestBuilder<'a, C, Box<dyn Signer + 'a>>
+{
     fn simulate(
         &self,
         rpc_client: &RpcClient,
@@ -121,9 +121,7 @@ pub fn log_simulation(
                         RpcSimulateTransactionResult {
                             err: _,
                             logs: Some(logs),
-                            accounts: _,
-                            units_consumed: _,
-                            return_data: _,
+                            ..
                         },
                     ),
                 ..
@@ -148,7 +146,7 @@ pub fn execute_anchor_builders_with_config<'a, I, C>(
     print: bool,
 ) -> anyhow::Result<()>
 where
-    I: IntoIterator<Item = RequestBuilder<'a, C>>,
+    I: IntoIterator<Item = RequestBuilder<'a, C, Box<dyn Signer + 'a>>>,
     C: Deref<Target = dynsigner::DynSigner> + Clone,
 {
     warn_text_simulate_print(simulate, print);
@@ -180,7 +178,7 @@ pub fn execute_anchor_builders<'a, I, C>(
     print: bool,
 ) -> anyhow::Result<()>
 where
-    I: IntoIterator<Item = RequestBuilder<'a, C>>,
+    I: IntoIterator<Item = RequestBuilder<'a, C, Box<dyn Signer + 'a>>>,
     C: Deref<Target = dynsigner::DynSigner> + Clone,
 {
     execute_anchor_builders_with_config(
@@ -195,8 +193,8 @@ where
     )
 }
 
-pub fn execute_anchor_builder_with_config<C: Deref<Target = dynsigner::DynSigner> + Clone>(
-    anchor_builder: RequestBuilder<C>,
+pub fn execute_anchor_builder_with_config<'a, C: Deref<Target = dynsigner::DynSigner> + Clone>(
+    anchor_builder: RequestBuilder<'a, C, Box<dyn Signer + 'a>>,
     rpc_client: &RpcClient,
     preflight_config: RpcSendTransactionConfig,
     simulate: bool,
@@ -211,8 +209,8 @@ pub fn execute_anchor_builder_with_config<C: Deref<Target = dynsigner::DynSigner
     )
 }
 
-pub fn execute_anchor_builder<C: Deref<Target = dynsigner::DynSigner> + Clone>(
-    anchor_builder: RequestBuilder<C>,
+pub fn execute_anchor_builder<'a, C: Deref<Target = dynsigner::DynSigner> + Clone>(
+    anchor_builder: RequestBuilder<'a, C, Box<dyn Signer + 'a>>,
     rpc_client: &RpcClient,
     skip_preflight: bool,
     simulate: bool,

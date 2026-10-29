@@ -5,5 +5,4 @@ edition = "2021"
 publish = false
 
 [dependencies]
-# capped at the 1.14 line: anchor-spl 0.27 (pinned by the liquid-staking-program dep) breaks on solana-program >= 1.16 borsh
-solana-sdk = "~1.14.18"
+solana-sdk = "2.3"

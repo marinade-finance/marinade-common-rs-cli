@@ -9,7 +9,8 @@ use marinade_finance::{
 };
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
-use solana_sdk::{stake, system_program, sysvar};
+use solana_sdk::sysvar;
+use solana_sdk_ids::{stake, system_program};
 use std::ops::Deref;
 
 pub fn add_validator<'a, C: Deref<Target = impl Signer> + Clone>(
@@ -19,7 +20,7 @@ pub fn add_validator<'a, C: Deref<Target = impl Signer> + Clone>(
     validator_vote: &Pubkey,
     score: u32,
     rent_payer: &Pubkey,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::AddValidator {
@@ -45,7 +46,7 @@ pub fn config_validator_system<'a, C: Deref<Target = impl Signer> + Clone>(
     state_pubkey: &Pubkey,
     state: &'a State,
     extra_runs: u32,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::ConfigValidatorSystem {
@@ -62,7 +63,7 @@ pub fn set_validator_score<'a, C: Deref<Target = impl Signer> + Clone>(
     validator_vote: &Pubkey,
     validator_index: u32,
     score: u32,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::SetValidatorScore {
@@ -83,7 +84,7 @@ pub fn remove_validator<'a, C: Deref<Target = impl Signer> + Clone>(
     state: &State,
     validator_vote: &Pubkey,
     index: u32,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::RemoveValidator {
@@ -110,7 +111,7 @@ pub fn emergency_unstake<'a, C: Deref<Target = impl Signer> + Clone>(
     stake_account: &Pubkey,
     stake_index: u32,
     validator_index: u32,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::EmergencyUnstake {
@@ -121,7 +122,7 @@ pub fn emergency_unstake<'a, C: Deref<Target = impl Signer> + Clone>(
             stake_account: *stake_account,
             stake_deposit_authority: StakeSystem::find_stake_deposit_authority(state_pubkey).0,
             clock: sysvar::clock::id(),
-            stake_program: stake::program::id(),
+            stake_program: stake::ID,
         })
         .args(marinade_finance_instruction::EmergencyUnstake {
             stake_index,
@@ -136,7 +137,7 @@ pub fn add_liquidity<'a, C: Deref<Target = impl Signer> + Clone>(
     transfer_from: &Pubkey,
     mint_to: &Pubkey,
     lamports: u64,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::AddLiquidity {
@@ -158,7 +159,7 @@ pub fn change_authority<'a, C: Deref<Target = impl Signer> + Clone>(
     state_pubkey: &Pubkey,
     state: &State,
     data: marinade_finance::instructions::ChangeAuthorityData,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::ChangeAuthority {
@@ -177,7 +178,7 @@ pub fn deactivate_stake<'a, C: Deref<Target = impl Signer> + Clone>(
     split_stake_rent_payer: &Pubkey,
     stake_index: u32,
     validator_index: u32,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::DeactivateStake {
@@ -194,7 +195,7 @@ pub fn deactivate_stake<'a, C: Deref<Target = impl Signer> + Clone>(
             epoch_schedule: sysvar::epoch_schedule::id(),
             stake_history: sysvar::stake_history::id(),
             system_program: system_program::ID,
-            stake_program: stake::program::ID,
+            stake_program: stake::ID,
         })
         .args(marinade_finance_instruction::DeactivateStake {
             stake_index,
@@ -209,7 +210,7 @@ pub fn deposit<'a, C: Deref<Target = impl Signer> + Clone>(
     transfer_from: &Pubkey,
     mint_to: &Pubkey,
     lamports: u64,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::Deposit {
@@ -238,7 +239,7 @@ pub fn deposit_stake_account<'a, C: Deref<Target = impl Signer> + Clone>(
     validator_index: u32,
     validator_vote: &Pubkey,
     rent_payer: &Pubkey,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::DepositStakeAccount {
@@ -260,7 +261,7 @@ pub fn deposit_stake_account<'a, C: Deref<Target = impl Signer> + Clone>(
             rent: sysvar::rent::id(),
             system_program: system_program::ID,
             token_program: spl_token::ID,
-            stake_program: stake::program::ID,
+            stake_program: stake::ID,
         })
         .args(marinade_finance_instruction::DepositStakeAccount { validator_index }))
 }
@@ -278,7 +279,7 @@ pub fn withdraw_stake_account<'a, C: Deref<Target = impl Signer> + Clone>(
     stake_index: u32,
     msol_amount: u64,
     beneficiary: &Pubkey,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::WithdrawStakeAccount {
@@ -297,7 +298,7 @@ pub fn withdraw_stake_account<'a, C: Deref<Target = impl Signer> + Clone>(
             clock: sysvar::clock::id(),
             system_program: system_program::ID,
             token_program: spl_token::ID,
-            stake_program: stake::program::ID,
+            stake_program: stake::ID,
         })
         .args(marinade_finance_instruction::WithdrawStakeAccount {
             stake_index,
@@ -317,7 +318,7 @@ pub fn partial_unstake<'a, C: Deref<Target = impl Signer> + Clone>(
     split_stake_account: &Pubkey,
     split_stake_rent_payer: &Pubkey,
     desired_unstake_amount: u64,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::PartialUnstake {
@@ -334,7 +335,7 @@ pub fn partial_unstake<'a, C: Deref<Target = impl Signer> + Clone>(
             rent: sysvar::rent::id(),
             stake_history: sysvar::stake_history::id(),
             system_program: system_program::ID,
-            stake_program: stake::program::ID,
+            stake_program: stake::ID,
         })
         .args(marinade_finance_instruction::PartialUnstake {
             stake_index,
@@ -354,7 +355,7 @@ pub fn initialize<'a, C: Deref<Target = impl Signer> + Clone>(
     lp_mint: &Pubkey,
     liq_pool_msol_leg: &Pubkey,
     data: marinade_finance::instructions::InitializeData,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::Initialize {
@@ -384,7 +385,7 @@ pub fn liquid_unstake<'a, C: Deref<Target = impl Signer> + Clone>(
     get_msol_from_authority: &Pubkey,
     transfer_sol_to: &Pubkey,
     msol_amount: u64,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::LiquidUnstake {
@@ -411,7 +412,7 @@ pub fn merge_stakes<'a, C: Deref<Target = impl Signer> + Clone>(
     source_stake: &Pubkey,
     source_stake_index: u32,
     validator_index: u32,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::MergeStakes {
@@ -425,7 +426,7 @@ pub fn merge_stakes<'a, C: Deref<Target = impl Signer> + Clone>(
             operational_sol_account: state.operational_sol_account,
             clock: sysvar::clock::id(),
             stake_history: sysvar::stake_history::id(),
-            stake_program: stake::program::ID,
+            stake_program: stake::ID,
         })
         .args(marinade_finance_instruction::MergeStakes {
             destination_stake_index,
@@ -442,7 +443,7 @@ pub fn create_canonical_stake<'a, C: Deref<Target = impl Signer> + Clone>(
     source_stake_index: u32,
     validator_index: u32,
     validator_vote: &Pubkey,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::CreateCanonicalStake {
@@ -456,7 +457,7 @@ pub fn create_canonical_stake<'a, C: Deref<Target = impl Signer> + Clone>(
             operational_sol_account: state.operational_sol_account,
             clock: sysvar::clock::id(),
             stake_history: sysvar::stake_history::id(),
-            stake_program: stake::program::ID,
+            stake_program: stake::ID,
             system_program: system_program::ID,
         })
         .args(marinade_finance_instruction::CreateCanonicalStake {
@@ -474,7 +475,7 @@ pub fn remove_liquidity<'a, C: Deref<Target = impl Signer> + Clone>(
     transfer_sol_to: &Pubkey,
     transfer_msol_to: &Pubkey,
     tokens: u64,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::RemoveLiquidity {
@@ -501,7 +502,7 @@ pub fn config_lp<'a, C: Deref<Target = impl Signer> + Clone>(
     max_fee: Option<Fee>,
     liquidity_target: Option<u64>,
     treasury_bp_cut: Option<Fee>,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::ConfigLp {
@@ -523,7 +524,7 @@ pub fn config_marinade<'a, C: Deref<Target = impl Signer> + Clone>(
     state_pubkey: &Pubkey,
     state: &State,
     params: marinade_finance::instructions::ConfigMarinadeParams,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::ConfigMarinade {
@@ -541,7 +542,7 @@ pub fn stake_reserve<'a, C: Deref<Target = impl Signer> + Clone>(
     validator_vote: &Pubkey,
     stake_account: &Pubkey,
     rent_payer: &Pubkey,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::StakeReserve {
@@ -557,9 +558,10 @@ pub fn stake_reserve<'a, C: Deref<Target = impl Signer> + Clone>(
             epoch_schedule: sysvar::epoch_schedule::ID,
             rent: sysvar::rent::id(),
             stake_history: sysvar::stake_history::ID,
+            #[allow(deprecated)]
             stake_config: stake::config::ID,
             system_program: system_program::ID,
-            stake_program: stake::program::ID,
+            stake_program: stake::ID,
         })
         .args(marinade_finance_instruction::StakeReserve { validator_index }))
 }
@@ -571,7 +573,7 @@ pub fn update_active<'a, C: Deref<Target = impl Signer> + Clone>(
     stake_account: &Pubkey,
     stake_index: u32,
     validator_index: u32,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::UpdateActive {
@@ -588,7 +590,7 @@ pub fn update_active<'a, C: Deref<Target = impl Signer> + Clone>(
                 msol_mint_authority: State::find_msol_mint_authority(state_pubkey).0,
                 treasury_msol_account: state.treasury_msol_account,
                 token_program: spl_token::ID,
-                stake_program: stake::program::ID,
+                stake_program: stake::ID,
                 validator_list: *state.validator_system.validator_list_address(),
             },
         })
@@ -605,7 +607,7 @@ pub fn update_deactivated<'a, C: Deref<Target = impl Signer> + Clone>(
     stake_account: &Pubkey,
     stake_index: u32,
     validator_index: u32,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::UpdateDeactivated {
@@ -622,7 +624,7 @@ pub fn update_deactivated<'a, C: Deref<Target = impl Signer> + Clone>(
                 msol_mint_authority: State::find_msol_mint_authority(state_pubkey).0,
                 treasury_msol_account: state.treasury_msol_account,
                 token_program: spl_token::ID,
-                stake_program: stake::program::ID,
+                stake_program: stake::ID,
                 validator_list: *state.validator_system.validator_list_address(),
             },
             operational_sol_account: state.operational_sol_account,
@@ -639,7 +641,7 @@ pub fn claim<'a, C: Deref<Target = impl Signer> + Clone>(
     state_pubkey: &Pubkey,
     ticket_account: &Pubkey,
     transfer_sol_to: &Pubkey,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::Claim {
@@ -661,7 +663,7 @@ pub fn order_unstake<'a, C: Deref<Target = impl Signer> + Clone>(
     burn_msol_from_authority: &Pubkey, // delegated or owner
     msol_amount: u64,
     new_ticket_account: &Pubkey,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::OrderUnstake {
@@ -681,7 +683,7 @@ pub fn emergency_pause<'a, C: Deref<Target = impl Signer> + Clone>(
     program: &'a Program<C>,
     state_pubkey: &Pubkey,
     state: &State,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::EmergencyPause {
@@ -695,7 +697,7 @@ pub fn emergency_resume<'a, C: Deref<Target = impl Signer> + Clone>(
     program: &'a Program<C>,
     state_pubkey: &Pubkey,
     state: &State,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::EmergencyPause {
@@ -710,7 +712,7 @@ pub fn finalize_delinquent_upgrade<'a, C: Deref<Target = impl Signer> + Clone>(
     state_pubkey: &Pubkey,
     state: &State,
     max_validators: u32,
-) -> anyhow::Result<RequestBuilder<'a, C>> {
+) -> anyhow::Result<RequestBuilder<'a, C, Box<dyn Signer + 'a>>> {
     Ok(program
         .request()
         .accounts(marinade_finance_accounts::FinalizeDelinquentUpgrade {

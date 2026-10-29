@@ -148,9 +148,9 @@ impl TransactionBuilder {
         }
     }
 
-    pub fn add_instructions_from_builder<C: Deref<Target = impl Signer> + Clone>(
+    pub fn add_instructions_from_builder<'a, C: Deref<Target = impl Signer> + Clone>(
         &mut self,
-        request_builder: RequestBuilder<C>,
+        request_builder: RequestBuilder<'a, C, Box<dyn Signer + 'a>>,
     ) -> anyhow::Result<&mut Self> {
         let instructions = request_builder.instructions().map_err(|e| {
             error!("add_instructions_from_builder: error building instructions: {e:?}");
