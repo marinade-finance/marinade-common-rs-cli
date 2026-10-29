@@ -1,6 +1,6 @@
 use crate::transactions::prepared_transaction::PreparedTransaction;
 use crate::transactions::signature_builder::SignatureBuilder;
-use anchor_client::RequestBuilder;
+use crate::RequestBuilder;
 use anyhow::anyhow;
 use log::error;
 use once_cell::sync::OnceCell;
@@ -148,9 +148,9 @@ impl TransactionBuilder {
         }
     }
 
-    pub fn add_instructions_from_builder<C: Deref<Target = impl Signer> + Clone>(
+    pub fn add_instructions_from_builder<'a, C: Deref<Target = impl Signer> + Clone>(
         &mut self,
-        request_builder: RequestBuilder<C>,
+        request_builder: RequestBuilder<'a, C>,
     ) -> anyhow::Result<&mut Self> {
         let instructions = request_builder.instructions().map_err(|e| {
             error!("add_instructions_from_builder: error building instructions: {e:?}");

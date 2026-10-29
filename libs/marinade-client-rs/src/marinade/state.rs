@@ -5,7 +5,7 @@ use marinade_finance::state::validator_system::ValidatorRecord;
 use marinade_finance::state::State;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::clock::Clock;
-use solana_sdk::stake::state::StakeState;
+use solana_stake_interface::state::StakeStateV2;
 
 pub fn validator_list(
     rpc_client: &RpcClient,
@@ -123,6 +123,6 @@ pub fn get_clock(rpc_client: &RpcClient) -> anyhow::Result<Clock> {
 pub struct StakeInfo {
     pub index: u32,
     pub record: StakeRecord,
-    pub stake: StakeState,
+    pub stake: StakeStateV2,
     pub balance: u64,
 }

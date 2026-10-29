@@ -19,15 +19,16 @@ pub struct RpcMarinade<C> {
 }
 
 impl<C: Deref<Target = impl Signer> + Clone> RpcMarinade<C> {
-    pub fn new(
+    pub async fn new(
         anchor_client: &Client<C>,
         program_pubkey: Pubkey,
         instance_pubkey: Pubkey,
     ) -> anyhow::Result<Self> {
-        let program = anchor_client.program(program_pubkey);
-        let state: State = program.account(instance_pubkey)?;
+        let program = anchor_client.program(program_pubkey)?;
+        let state: State = program.account(instance_pubkey).await?;
+        let async_client = program.rpc();
         Ok(Self {
-            client: program.rpc(),
+            client: RpcClient::new_with_commitment(async_client.url(), async_client.commitment()),
             program,
             program_pubkey,
             instance_pubkey,
@@ -35,8 +36,8 @@ impl<C: Deref<Target = impl Signer> + Clone> RpcMarinade<C> {
         })
     }
 
-    pub fn update(&mut self) -> anyhow::Result<()> {
-        self.state = self.program.account(self.instance_pubkey)?;
+    pub async fn update(&mut self) -> anyhow::Result<()> {
+        self.state = self.program.account(self.instance_pubkey).await?;
         Ok(())
     }
 

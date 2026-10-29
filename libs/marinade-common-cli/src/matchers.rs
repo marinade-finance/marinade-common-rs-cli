@@ -8,7 +8,7 @@ use solana_remote_wallet::remote_wallet::RemoteWalletManager;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
-use std::{str::FromStr, sync::Arc};
+use std::{rc::Rc, str::FromStr, sync::Arc};
 
 // Getting keypair from the matched name as the keypair path argument, or returns the default signer
 pub fn keypair_from_path_or_default(
@@ -39,7 +39,7 @@ pub fn signer_from_path_or_default(
     matches: &ArgMatches<'_>,
     name: &str,
     default_signer: &Arc<dyn Signer>,
-    wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
+    wallet_manager: &mut Option<Rc<RemoteWalletManager>>,
 ) -> anyhow::Result<Arc<dyn Signer>> {
     if let Some(location) = matches.value_of(name) {
         Ok(Arc::from(
@@ -63,7 +63,7 @@ pub fn signer_from_path_or_default(
 pub fn pubkey_or_of_signer(
     matches: &ArgMatches<'_>,
     name: &str,
-    wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
+    wallet_manager: &mut Option<Rc<RemoteWalletManager>>,
 ) -> anyhow::Result<Pubkey> {
     pubkey_or_of_signer_optional(matches, name, wallet_manager)
         .map(|pubkey| pubkey.ok_or_else(|| anyhow!("Value for argument '{name}' was not provided")))
@@ -74,7 +74,7 @@ pub fn pubkey_or_of_signer(
 pub fn pubkey_or_of_signer_optional(
     matches: &ArgMatches<'_>,
     name: &str,
-    wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
+    wallet_manager: &mut Option<Rc<RemoteWalletManager>>,
 ) -> anyhow::Result<Option<Pubkey>> {
     matches.value_of(name).map_or(Ok(None), |matched_value| {
         let pubkey = Pubkey::from_str(matched_value).or_else(|e| {
@@ -95,7 +95,7 @@ pub fn pubkey_or_of_signer_optional(
 pub fn process_multiple_pubkeys(
     arg_matches: &ArgMatches,
     arg_name: &str,
-    wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
+    wallet_manager: &mut Option<Rc<RemoteWalletManager>>,
 ) -> anyhow::Result<Vec<Pubkey>> {
     let mut value_pubkeys: Vec<Pubkey> = vec![];
     if let Some(values) = arg_matches.values_of(arg_name) {
@@ -115,7 +115,7 @@ fn pubkey_or_from_path(
     matches: &ArgMatches<'_>,
     name: &str,
     value_or_path: &str,
-    wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
+    wallet_manager: &mut Option<Rc<RemoteWalletManager>>,
 ) -> anyhow::Result<Pubkey> {
     Pubkey::from_str(value_or_path).or_else(|e| {
         debug!(
@@ -154,7 +154,7 @@ pub fn pubkey_or_keypair(
 pub fn pubkey_or_signer(
     matches: &ArgMatches<'_>,
     name: &str,
-    wallet_manager: &mut Option<Arc<RemoteWalletManager>>,
+    wallet_manager: &mut Option<Rc<RemoteWalletManager>>,
 ) -> anyhow::Result<Option<PubkeyOrSigner>> {
     // when the argument provides no value then returns None
     // when the argument provides a value then we parse and parsing error is returned as an error, not as None

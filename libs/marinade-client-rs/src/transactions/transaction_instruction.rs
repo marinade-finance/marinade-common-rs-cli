@@ -1,4 +1,5 @@
 use anchor_lang::prelude::{AnchorDeserialize, AnchorSerialize};
+use base64::Engine;
 use solana_sdk::instruction::{AccountMeta, Instruction};
 use solana_sdk::pubkey::Pubkey;
 
@@ -65,7 +66,7 @@ pub fn print_base64(instructions: &Vec<Instruction>) -> anyhow::Result<()> {
         println!(
             "program: {}\n  {}",
             instruction.program_id,
-            anchor_lang::__private::base64::encode(transaction_instruction.try_to_vec()?)
+            base64::engine::general_purpose::STANDARD.encode(transaction_instruction.try_to_vec()?)
         );
     }
     Ok(())

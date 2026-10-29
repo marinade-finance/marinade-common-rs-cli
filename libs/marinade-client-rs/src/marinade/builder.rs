@@ -11,7 +11,7 @@ use crate::marinade::rpc_marinade::RpcMarinade;
 use crate::marinade::verifiers::{
     verify_admin_authority, verify_manager_authority, verify_pause_authority,
 };
-use anchor_client::RequestBuilder;
+use crate::RequestBuilder;
 use dynsigner::PubkeyOrKeypair;
 use marinade_finance::instructions::{ChangeAuthorityData, ConfigMarinadeParams};
 use marinade_finance::state::Fee;
@@ -254,10 +254,10 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             &rent_payer.pubkey(),
         )?;
         if let Some(signer) = validator_manager_authority.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         if let Some(signer) = rent_payer.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         Ok(builder)
     }
@@ -279,7 +279,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             score,
         )?;
         if let Some(signer) = validator_manager_authority.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         Ok(builder)
     }
@@ -297,7 +297,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             extra_runs,
         )?;
         if let Some(signer) = validator_manager_authority.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         Ok(builder)
     }
@@ -319,7 +319,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             validator_index,
         )?;
         if let Some(signer) = validator_manager_authority.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         Ok(builder)
     }
@@ -339,7 +339,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             validator_index,
         )?;
         if let Some(signer) = validator_manager_authority.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         Ok(builder)
     }
@@ -359,7 +359,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             lamports,
         )?;
         if let Some(signer) = transfer_from.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         Ok(builder)
     }
@@ -373,7 +373,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
         let mut builder =
             change_authority(&self.program, &self.instance_pubkey, &self.state, params)?;
         if let Some(signer) = admin_authority.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         Ok(builder)
     }
@@ -397,10 +397,10 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             validator_index,
         )?;
         if let Some(signer) = split_stake_account.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         if let Some(signer) = split_stake_rent_payer.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         Ok(builder)
     }
@@ -420,7 +420,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             lamports,
         )?;
         if let Some(signer) = transfer_from.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         Ok(builder)
     }
@@ -446,10 +446,10 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             &rent_payer.pubkey(),
         )?;
         if let Some(signer) = stake_authority.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         if let Some(signer) = rent_payer.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         Ok(builder)
     }
@@ -477,13 +477,13 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             desired_amount,
         )?;
         if let Some(signer) = validator_manager_authority.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         if let Some(signer) = split_stake_account.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         if let Some(signer) = split_stake_rent_payer.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         Ok(builder)
     }
@@ -512,7 +512,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             &liq_pool_msol_leg,
             data,
         )?
-        .signer(state.as_ref()))
+        .signer(state.clone()))
     }
 
     fn liquid_unstake(
@@ -532,7 +532,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             msol_amount,
         )?;
         if let Some(signer) = get_msol_from_authority.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         Ok(builder)
     }
@@ -595,7 +595,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             tokens,
         )?;
         if let Some(signer) = burn_from_authority.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         Ok(builder)
     }
@@ -619,7 +619,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             treasury_bp_cut,
         )?;
         if let Some(signer) = admin_authority.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         Ok(builder)
     }
@@ -633,7 +633,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
         let mut builder =
             config_marinade(&self.program, &self.instance_pubkey, &self.state, params)?;
         if let Some(signer) = admin_authority.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         Ok(builder)
     }
@@ -655,10 +655,10 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             &rent_payer.pubkey(),
         )?;
         if let Some(signer) = stake_account.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         if let Some(signer) = rent_payer.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         Ok(builder)
     }
@@ -712,7 +712,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             &ticket_account,
         )?;
         if let Some(signer) = burn_msol_from_authority.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         Ok(builder)
     }
@@ -737,7 +737,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
         verify_pause_authority(&self.state, &pause_authority.pubkey())?;
         let mut builder = emergency_pause(&self.program, &self.instance_pubkey, &self.state)?;
         if let Some(signer) = pause_authority.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         Ok(builder)
     }
@@ -749,7 +749,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
         verify_pause_authority(&self.state, &pause_authority.pubkey())?;
         let mut builder = emergency_resume(&self.program, &self.instance_pubkey, &self.state)?;
         if let Some(signer) = pause_authority.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         Ok(builder)
     }
@@ -781,13 +781,13 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> MarinadeRequestBuilder<'a, C> f
             &beneficiary,
         )?;
         if let Some(signer) = burn_msol_authority.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         if let Some(signer) = split_stake_account.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         if let Some(signer) = split_stake_rent_payer.use_keypair() {
-            builder = builder.signer(signer.as_ref());
+            builder = builder.signer(signer.clone());
         }
         Ok(builder)
     }

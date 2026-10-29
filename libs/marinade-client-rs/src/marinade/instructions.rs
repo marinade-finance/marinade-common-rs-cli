@@ -1,5 +1,6 @@
 #![allow(clippy::too_many_arguments)]
-use anchor_client::{Program, RequestBuilder};
+use crate::RequestBuilder;
+use anchor_client::Program;
 use marinade_finance::state::liq_pool::LiqPool;
 use marinade_finance::state::stake_system::StakeSystem;
 use marinade_finance::state::validator_system::ValidatorRecord;
@@ -9,7 +10,8 @@ use marinade_finance::{
 };
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
-use solana_sdk::{stake, system_program, sysvar};
+use solana_sdk::sysvar;
+use solana_sdk_ids::{stake, system_program};
 use std::ops::Deref;
 
 pub fn add_validator<'a, C: Deref<Target = impl Signer> + Clone>(
@@ -121,7 +123,7 @@ pub fn emergency_unstake<'a, C: Deref<Target = impl Signer> + Clone>(
             stake_account: *stake_account,
             stake_deposit_authority: StakeSystem::find_stake_deposit_authority(state_pubkey).0,
             clock: sysvar::clock::id(),
-            stake_program: stake::program::id(),
+            stake_program: stake::ID,
         })
         .args(marinade_finance_instruction::EmergencyUnstake {
             stake_index,
@@ -194,7 +196,7 @@ pub fn deactivate_stake<'a, C: Deref<Target = impl Signer> + Clone>(
             epoch_schedule: sysvar::epoch_schedule::id(),
             stake_history: sysvar::stake_history::id(),
             system_program: system_program::ID,
-            stake_program: stake::program::ID,
+            stake_program: stake::ID,
         })
         .args(marinade_finance_instruction::DeactivateStake {
             stake_index,
@@ -260,7 +262,7 @@ pub fn deposit_stake_account<'a, C: Deref<Target = impl Signer> + Clone>(
             rent: sysvar::rent::id(),
             system_program: system_program::ID,
             token_program: spl_token::ID,
-            stake_program: stake::program::ID,
+            stake_program: stake::ID,
         })
         .args(marinade_finance_instruction::DepositStakeAccount { validator_index }))
 }
@@ -297,7 +299,7 @@ pub fn withdraw_stake_account<'a, C: Deref<Target = impl Signer> + Clone>(
             clock: sysvar::clock::id(),
             system_program: system_program::ID,
             token_program: spl_token::ID,
-            stake_program: stake::program::ID,
+            stake_program: stake::ID,
         })
         .args(marinade_finance_instruction::WithdrawStakeAccount {
             stake_index,
@@ -334,7 +336,7 @@ pub fn partial_unstake<'a, C: Deref<Target = impl Signer> + Clone>(
             rent: sysvar::rent::id(),
             stake_history: sysvar::stake_history::id(),
             system_program: system_program::ID,
-            stake_program: stake::program::ID,
+            stake_program: stake::ID,
         })
         .args(marinade_finance_instruction::PartialUnstake {
             stake_index,
@@ -425,7 +427,7 @@ pub fn merge_stakes<'a, C: Deref<Target = impl Signer> + Clone>(
             operational_sol_account: state.operational_sol_account,
             clock: sysvar::clock::id(),
             stake_history: sysvar::stake_history::id(),
-            stake_program: stake::program::ID,
+            stake_program: stake::ID,
         })
         .args(marinade_finance_instruction::MergeStakes {
             destination_stake_index,
@@ -456,7 +458,7 @@ pub fn create_canonical_stake<'a, C: Deref<Target = impl Signer> + Clone>(
             operational_sol_account: state.operational_sol_account,
             clock: sysvar::clock::id(),
             stake_history: sysvar::stake_history::id(),
-            stake_program: stake::program::ID,
+            stake_program: stake::ID,
             system_program: system_program::ID,
         })
         .args(marinade_finance_instruction::CreateCanonicalStake {
@@ -557,9 +559,10 @@ pub fn stake_reserve<'a, C: Deref<Target = impl Signer> + Clone>(
             epoch_schedule: sysvar::epoch_schedule::ID,
             rent: sysvar::rent::id(),
             stake_history: sysvar::stake_history::ID,
+            #[allow(deprecated)]
             stake_config: stake::config::ID,
             system_program: system_program::ID,
-            stake_program: stake::program::ID,
+            stake_program: stake::ID,
         })
         .args(marinade_finance_instruction::StakeReserve { validator_index }))
 }
@@ -588,7 +591,7 @@ pub fn update_active<'a, C: Deref<Target = impl Signer> + Clone>(
                 msol_mint_authority: State::find_msol_mint_authority(state_pubkey).0,
                 treasury_msol_account: state.treasury_msol_account,
                 token_program: spl_token::ID,
-                stake_program: stake::program::ID,
+                stake_program: stake::ID,
                 validator_list: *state.validator_system.validator_list_address(),
             },
         })
@@ -622,7 +625,7 @@ pub fn update_deactivated<'a, C: Deref<Target = impl Signer> + Clone>(
                 msol_mint_authority: State::find_msol_mint_authority(state_pubkey).0,
                 treasury_msol_account: state.treasury_msol_account,
                 token_program: spl_token::ID,
-                stake_program: stake::program::ID,
+                stake_program: stake::ID,
                 validator_list: *state.validator_system.validator_list_address(),
             },
             operational_sol_account: state.operational_sol_account,

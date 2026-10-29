@@ -2,7 +2,7 @@ use anyhow::bail;
 use marinade_finance::State;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
-use solana_sdk::system_program;
+use solana_sdk_ids::system_program;
 
 pub fn verify_manager_authority(
     state: &State,

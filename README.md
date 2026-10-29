@@ -2,7 +2,7 @@
 
 This is a collection of utilities for Rust that enhance the off-chain work with the [Marinade liquid-staking-program](https://github.com/marinade-finance/liquid-staking-program).
 It is primarily designed to be used with Marinade's CLI tools in Rust. These utilities provide helpers for utilizing the [clap argument parser](https://docs.rs/clap/latest/clap/),
-in conjunction with the [Solana clap utilities](https://github.com/solana-labs/solana/tree/v1.14.19/clap-utils).
+in conjunction with the [Solana clap utilities](https://github.com/anza-xyz/agave/tree/v2.3.13/clap-utils).
 
 The repository is divided into three crates:
 
