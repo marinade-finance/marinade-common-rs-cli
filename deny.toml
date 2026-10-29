@@ -87,16 +87,7 @@ allow = [
   "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.93
-# Scoped per-crate allowances for licenses deliberately kept out of the org-wide
-# `allow` list above.
-exceptions = [
-  # marinade-finance is Marinade's own on-chain program under the Medium Rare
-  # Foundation source-available license: non-commercial use only, commercial use
-  # by separate agreement. First-party, so not a third-party supply-chain
-  # concern, but it is emphatically NOT permissive and must never be clarified
-  # as Apache-2.0 or added to the org-wide allow list.
-  { crate = "marinade-finance", allow = ["LicenseRef-Marinade-MediumRare"] },
-]
+exceptions = []
 # First-party workspace crates are routinely unpublished (`publish = false`)
 # and carry no `license` field — they're internal binaries, integration-test
 # crates, and not-yet-released SDKs. Skip the license check for those rather
@@ -144,15 +135,6 @@ license-files = []
 [[licenses.clarify]]
 crate = "solana-transaction-executor"
 expression = "Apache-2.0"
-license-files = []
-
-# marinade-finance carries no `license` field and its repository ships
-# LICENSE.md, a bespoke source-available licence (Medium Rare Foundation,
-# non-commercial use only). Named as a LicenseRef because it has no SPDX id; see
-# the scoped exception above.
-[[licenses.clarify]]
-crate = "marinade-finance"
-expression = "LicenseRef-Marinade-MediumRare"
 license-files = []
 
 [bans]
