@@ -3,10 +3,6 @@
 # the org config. It mirrors that org policy and adds the exceptions this repo's
 # dependency tree needs.
 #
-# The repo-local additions below come through the solana 2.3 client crates.
-# anchor-client 0.31 requires solana-client 2.x, so they stay until the
-# workspace moves to an anchor-client on solana 3.x.
-
 [advisories]
 db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
@@ -35,25 +31,11 @@ ignore = [
   # ansi_term unmaintained. Pulled via clap 2.34 (solana-clap-utils).
   "RUSTSEC-2021-0139",
 
-  # --- repo-local additions, all from the solana 2.3 client crates ---
-  # rustls 0.21.12, rustls-webpki 0.101.7 and webpki-roots 0.24 / 0.25. Fixed only
-  # in rustls 0.23.46, rustls-webpki 0.103.16 and webpki-roots 1.0.10.
-  # solana-pubsub-client 2.3 pins tokio-tungstenite 0.20, which pins these.
+  # rustls-webpki 0.101.x (EOL) cert-validation bugs. Pulled via the old
+  # rustls 0.21 / tokio-tungstenite 0.20 stack that solana-pubsub-client pins.
   "RUSTSEC-2026-0098",
   "RUSTSEC-2026-0099",
   "RUSTSEC-2026-0104",
-  "RUSTSEC-2026-0346",
-  "RUSTSEC-2026-0349",
-  "RUSTSEC-2026-0381",
-  "RUSTSEC-2026-0382",
-  # zstd 0.13 / zstd-safe 7. Fixed only in zstd 0.14 / zstd-safe 8.2.
-  # solana-account-decoder 2.3 requires zstd ^0.13.
-  "RUSTSEC-2026-0391",
-  "RUSTSEC-2026-0398",
-  "RUSTSEC-2026-0403",
-  # unsafe-libyaml unmaintained, no patched release. Pulled via serde_yaml 0.9
-  # -> solana-cli-config 2.3.
-  "RUSTSEC-2024-0449",
 ]
 
 # Permissive-only allow list. Anything copyleft (GPL/LGPL/AGPL/EUPL/EPL),
