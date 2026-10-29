@@ -3,7 +3,7 @@
 use crate::transactions::prepared_transaction::PreparedTransaction;
 use crate::transactions::transaction_builder::TransactionBuilder;
 use crate::transactions::transaction_instruction::print_base64;
-use anchor_client::RequestBuilder;
+use crate::RequestBuilder;
 use anyhow::bail;
 use log::{debug, error, info, warn};
 use solana_client::client_error::ClientError as SolanaClientError;
@@ -50,18 +50,17 @@ pub fn log_execution(
     Ok(())
 }
 
+#[allow(async_fn_in_trait)]
 pub trait TransactionSimulator {
-    fn simulate(
+    async fn simulate(
         &self,
         rpc_client: &RpcClient,
         sig_verify: bool,
     ) -> RpcResult<RpcSimulateTransactionResult>;
 }
 
-impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator
-    for RequestBuilder<'a, C, Box<dyn Signer + 'a>>
-{
-    fn simulate(
+impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for RequestBuilder<'a, C> {
+    async fn simulate(
         &self,
         rpc_client: &RpcClient,
         sig_verify: bool,
@@ -71,7 +70,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator
         // would fail before the RPC is ever reached. With sig_verify=false the
         // RPC accepts the unsigned tx as-is.
         let tx = if sig_verify {
-            self.signed_transaction().map_err(|err| {
+            self.signed_transaction().await.map_err(|err| {
                 error!(
                     "RequestBuilder#simulate: cannot build signed transaction from builder: {err:?}"
                 );
@@ -138,7 +137,7 @@ pub fn log_simulation(
     Ok(())
 }
 
-pub fn execute_anchor_builders_with_config<'a, I, C>(
+pub async fn execute_anchor_builders_with_config<'a, I, C>(
     anchor_builders: I,
     rpc_client: &RpcClient,
     preflight_config: RpcSendTransactionConfig,
@@ -146,7 +145,7 @@ pub fn execute_anchor_builders_with_config<'a, I, C>(
     print: bool,
 ) -> anyhow::Result<()>
 where
-    I: IntoIterator<Item = RequestBuilder<'a, C, Box<dyn Signer + 'a>>>,
+    I: IntoIterator<Item = RequestBuilder<'a, C>>,
     C: Deref<Target = dynsigner::DynSigner> + Clone,
 {
     warn_text_simulate_print(simulate, print);
@@ -156,21 +155,21 @@ where
             if print {
                 print_base64(&builder.instructions()?)?;
             }
-            log_simulation(&builder.simulate(rpc_client, !print))?;
+            log_simulation(&builder.simulate(rpc_client, !print).await)?;
         }
     } else {
-        anchor_builders.into_iter().try_for_each(|builder| {
+        for builder in anchor_builders {
             if print {
                 print_base64(&builder.instructions()?)?;
             }
-            log_execution(&builder.send_with_spinner_and_config(preflight_config))
-        })?;
+            log_execution(&builder.send_with_spinner_and_config(preflight_config).await)?;
+        }
     }
 
     Ok(())
 }
 
-pub fn execute_anchor_builders<'a, I, C>(
+pub async fn execute_anchor_builders<'a, I, C>(
     anchor_builders: I,
     rpc_client: &RpcClient,
     skip_preflight: bool,
@@ -178,7 +177,7 @@ pub fn execute_anchor_builders<'a, I, C>(
     print: bool,
 ) -> anyhow::Result<()>
 where
-    I: IntoIterator<Item = RequestBuilder<'a, C, Box<dyn Signer + 'a>>>,
+    I: IntoIterator<Item = RequestBuilder<'a, C>>,
     C: Deref<Target = dynsigner::DynSigner> + Clone,
 {
     execute_anchor_builders_with_config(
@@ -191,10 +190,14 @@ where
         simulate,
         print,
     )
+    .await
 }
 
-pub fn execute_anchor_builder_with_config<'a, C: Deref<Target = dynsigner::DynSigner> + Clone>(
-    anchor_builder: RequestBuilder<'a, C, Box<dyn Signer + 'a>>,
+pub async fn execute_anchor_builder_with_config<
+    'a,
+    C: Deref<Target = dynsigner::DynSigner> + Clone,
+>(
+    anchor_builder: RequestBuilder<'a, C>,
     rpc_client: &RpcClient,
     preflight_config: RpcSendTransactionConfig,
     simulate: bool,
@@ -207,10 +210,11 @@ pub fn execute_anchor_builder_with_config<'a, C: Deref<Target = dynsigner::DynSi
         simulate,
         print,
     )
+    .await
 }
 
-pub fn execute_anchor_builder<'a, C: Deref<Target = dynsigner::DynSigner> + Clone>(
-    anchor_builder: RequestBuilder<'a, C, Box<dyn Signer + 'a>>,
+pub async fn execute_anchor_builder<'a, C: Deref<Target = dynsigner::DynSigner> + Clone>(
+    anchor_builder: RequestBuilder<'a, C>,
     rpc_client: &RpcClient,
     skip_preflight: bool,
     simulate: bool,
@@ -223,6 +227,7 @@ pub fn execute_anchor_builder<'a, C: Deref<Target = dynsigner::DynSigner> + Clon
         simulate,
         print,
     )
+    .await
 }
 
 pub fn execute_transaction_builder(
