@@ -2418,7 +2418,7 @@ dependencies = [
 [[package]]
 name = "marinade-finance"
 version = "0.1.0"
-source = "git+https://github.com/marinade-finance/liquid-staking-program.git?branch=gen-8777%2Fanchor-0.31#1c62e80b78caab238e621484c9f1314b863aa55d"
+source = "git+https://github.com/marinade-finance/liquid-staking-program.git?branch=gen-8777%2Fanchor-0.31#d37afa18091b81d9293a8f890d6efae34e7bcabc"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
@@ -6556,7 +6556,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
