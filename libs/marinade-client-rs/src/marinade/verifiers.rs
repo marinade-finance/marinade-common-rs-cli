@@ -1,8 +1,8 @@
 use anyhow::bail;
 use marinade_finance::State;
-use solana_client::rpc_client::RpcClient;
+use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
-use solana_sdk::system_program;
+use solana_sdk_ids::system_program;
 
 pub fn verify_manager_authority(
     state: &State,
@@ -27,8 +27,8 @@ pub fn verify_admin_authority(state: &State, admin_authority: &Pubkey) -> anyhow
     Ok(())
 }
 
-pub fn verify_rent_payer(rpc_client: &RpcClient, rent_payer: &Pubkey) -> anyhow::Result<()> {
-    let rent_account = rpc_client.get_account(rent_payer)?;
+pub async fn verify_rent_payer(rpc_client: &RpcClient, rent_payer: &Pubkey) -> anyhow::Result<()> {
+    let rent_account = rpc_client.get_account(rent_payer).await?;
     if rent_account.owner != system_program::ID {
         bail!(
             "verify_rent_payer: provided rent payer {rent_payer} address must be a system account"

@@ -3,12 +3,12 @@
 use crate::transactions::prepared_transaction::PreparedTransaction;
 use crate::transactions::transaction_builder::TransactionBuilder;
 use crate::transactions::transaction_instruction::print_base64;
-use anchor_client::RequestBuilder;
+use crate::RequestBuilder;
 use anyhow::bail;
 use log::{debug, error, info, warn};
 use solana_client::client_error::ClientError as SolanaClientError;
 use solana_client::client_error::ClientErrorKind;
-use solana_client::rpc_client::RpcClient;
+use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_client::rpc_config::{RpcSendTransactionConfig, RpcSimulateTransactionConfig};
 use solana_client::rpc_request::RpcError::ForUser;
 use solana_client::rpc_request::{RpcError, RpcResponseErrorData};
@@ -32,9 +32,7 @@ pub fn log_execution(
                             RpcSimulateTransactionResult {
                                 err: _,
                                 logs: Some(logs),
-                                accounts: _,
-                                return_data: _,
-                                units_consumed: _,
+                                ..
                             },
                         ),
                     ..
@@ -52,8 +50,9 @@ pub fn log_execution(
     Ok(())
 }
 
+#[allow(async_fn_in_trait)]
 pub trait TransactionSimulator {
-    fn simulate(
+    async fn simulate(
         &self,
         rpc_client: &RpcClient,
         sig_verify: bool,
@@ -61,7 +60,7 @@ pub trait TransactionSimulator {
 }
 
 impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for RequestBuilder<'a, C> {
-    fn simulate(
+    async fn simulate(
         &self,
         rpc_client: &RpcClient,
         sig_verify: bool,
@@ -71,7 +70,7 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for Reques
         // would fail before the RPC is ever reached. With sig_verify=false the
         // RPC accepts the unsigned tx as-is.
         let tx = if sig_verify {
-            self.signed_transaction().map_err(|err| {
+            self.signed_transaction().await.map_err(|err| {
                 error!(
                     "RequestBuilder#simulate: cannot build signed transaction from builder: {err:?}"
                 );
@@ -83,16 +82,18 @@ impl<'a, C: Deref<Target = impl Signer> + Clone> TransactionSimulator for Reques
                 ForUser(format!("Building instructions error: {err}"))
             })?;
             let mut tx = Transaction::new_with_payer(&instructions, None);
-            tx.message.recent_blockhash = rpc_client.get_latest_blockhash()?;
+            tx.message.recent_blockhash = rpc_client.get_latest_blockhash().await?;
             tx
         };
-        rpc_client.simulate_transaction_with_config(
-            &tx,
-            RpcSimulateTransactionConfig {
-                sig_verify,
-                ..RpcSimulateTransactionConfig::default()
-            },
-        )
+        rpc_client
+            .simulate_transaction_with_config(
+                &tx,
+                RpcSimulateTransactionConfig {
+                    sig_verify,
+                    ..RpcSimulateTransactionConfig::default()
+                },
+            )
+            .await
     }
 }
 
@@ -121,9 +122,7 @@ pub fn log_simulation(
                         RpcSimulateTransactionResult {
                             err: _,
                             logs: Some(logs),
-                            accounts: _,
-                            units_consumed: _,
-                            return_data: _,
+                            ..
                         },
                     ),
                 ..
@@ -140,7 +139,7 @@ pub fn log_simulation(
     Ok(())
 }
 
-pub fn execute_anchor_builders_with_config<'a, I, C>(
+pub async fn execute_anchor_builders_with_config<'a, I, C>(
     anchor_builders: I,
     rpc_client: &RpcClient,
     preflight_config: RpcSendTransactionConfig,
@@ -158,21 +157,21 @@ where
             if print {
                 print_base64(&builder.instructions()?)?;
             }
-            log_simulation(&builder.simulate(rpc_client, !print))?;
+            log_simulation(&builder.simulate(rpc_client, !print).await)?;
         }
     } else {
-        anchor_builders.into_iter().try_for_each(|builder| {
+        for builder in anchor_builders {
             if print {
                 print_base64(&builder.instructions()?)?;
             }
-            log_execution(&builder.send_with_spinner_and_config(preflight_config))
-        })?;
+            log_execution(&builder.send_with_spinner_and_config(preflight_config).await)?;
+        }
     }
 
     Ok(())
 }
 
-pub fn execute_anchor_builders<'a, I, C>(
+pub async fn execute_anchor_builders<'a, I, C>(
     anchor_builders: I,
     rpc_client: &RpcClient,
     skip_preflight: bool,
@@ -193,10 +192,14 @@ where
         simulate,
         print,
     )
+    .await
 }
 
-pub fn execute_anchor_builder_with_config<C: Deref<Target = dynsigner::DynSigner> + Clone>(
-    anchor_builder: RequestBuilder<C>,
+pub async fn execute_anchor_builder_with_config<
+    'a,
+    C: Deref<Target = dynsigner::DynSigner> + Clone,
+>(
+    anchor_builder: RequestBuilder<'a, C>,
     rpc_client: &RpcClient,
     preflight_config: RpcSendTransactionConfig,
     simulate: bool,
@@ -209,10 +212,11 @@ pub fn execute_anchor_builder_with_config<C: Deref<Target = dynsigner::DynSigner
         simulate,
         print,
     )
+    .await
 }
 
-pub fn execute_anchor_builder<C: Deref<Target = dynsigner::DynSigner> + Clone>(
-    anchor_builder: RequestBuilder<C>,
+pub async fn execute_anchor_builder<'a, C: Deref<Target = dynsigner::DynSigner> + Clone>(
+    anchor_builder: RequestBuilder<'a, C>,
     rpc_client: &RpcClient,
     skip_preflight: bool,
     simulate: bool,
@@ -225,9 +229,10 @@ pub fn execute_anchor_builder<C: Deref<Target = dynsigner::DynSigner> + Clone>(
         simulate,
         print,
     )
+    .await
 }
 
-pub fn execute_transaction_builder(
+pub async fn execute_transaction_builder(
     transaction_builder: &mut TransactionBuilder,
     rpc_client: &RpcClient,
     preflight_config: RpcSendTransactionConfig,
@@ -273,7 +278,8 @@ pub fn execute_transaction_builder(
                     ..simulation_config_default
                 },
                 blockhash_commitment,
-            );
+            )
+            .await;
             log_simulation(&simulation_result)?;
         }
         if number_of_transactions > 1 {
@@ -287,7 +293,8 @@ pub fn execute_transaction_builder(
                 preflight_config,
                 blockhash_commitment,
                 blockhash_failure_retries,
-            );
+            )
+            .await;
             log_execution(&execution_result)?;
         }
     }
@@ -295,12 +302,12 @@ pub fn execute_transaction_builder(
     Ok(())
 }
 
-fn execute_prepared_transaction_internal(
+async fn execute_prepared_transaction_internal(
     prepared_transaction: &mut PreparedTransaction,
     rpc_client: &RpcClient,
     preflight_config: RpcSendTransactionConfig,
 ) -> Result<Signature, solana_client::client_error::ClientError> {
-    let latest_hash = rpc_client.get_latest_blockhash()?;
+    let latest_hash = rpc_client.get_latest_blockhash().await?;
     let tx = prepared_transaction.sign(latest_hash).map_err(|e| {
         error!(
             "execute_prepared_transaction: error signing transaction with blockhash: {latest_hash}: {e:?}"
@@ -308,14 +315,16 @@ fn execute_prepared_transaction_internal(
         SolanaClientError::from(e)
     })?;
 
-    rpc_client.send_and_confirm_transaction_with_spinner_and_config(
-        tx,
-        rpc_client.commitment(),
-        preflight_config,
-    )
+    rpc_client
+        .send_and_confirm_transaction_with_spinner_and_config(
+            tx,
+            rpc_client.commitment(),
+            preflight_config,
+        )
+        .await
 }
 
-fn execute_prepared_transaction_retry_blockhash_internal(
+async fn execute_prepared_transaction_retry_blockhash_internal(
     prepared_transaction: &mut PreparedTransaction,
     rpc_client: &RpcClient,
     preflight_config: RpcSendTransactionConfig,
@@ -331,7 +340,8 @@ fn execute_prepared_transaction_retry_blockhash_internal(
             prepared_transaction,
             rpc_client,
             preflight_config,
-        );
+        )
+        .await;
         match send_result {
             Ok(signature) => {
                 return Ok(signature);
@@ -403,7 +413,7 @@ fn execute_prepared_transaction_retry_blockhash_internal(
     Err(last_error)
 }
 
-pub fn execute_prepared_transaction(
+pub async fn execute_prepared_transaction(
     prepared_transaction: &mut PreparedTransaction,
     rpc_client: &RpcClient,
     preflight_config: RpcSendTransactionConfig,
@@ -419,14 +429,14 @@ pub fn execute_prepared_transaction(
         prepared_transaction,
         &rpc_client_blockhash,
         preflight_config,
-    ).map_err(|e|{
+    ).await.map_err(|e|{
         error!("execute_prepared_transaction: error send_and_confirm transaction '{:?}', signers: '{:?}': {:?}",
                 prepared_transaction.transaction, prepared_transaction.signers.iter().map(|s| s.pubkey()), e);
         e.into()
     })
 }
 
-pub fn execute_prepared_transaction_blockhash_retry(
+pub async fn execute_prepared_transaction_blockhash_retry(
     prepared_transaction: &mut PreparedTransaction,
     rpc_client: &RpcClient,
     preflight_config: RpcSendTransactionConfig,
@@ -445,9 +455,10 @@ pub fn execute_prepared_transaction_blockhash_retry(
         preflight_config,
         blockhash_failure_retries,
     )
+    .await
 }
 
-pub fn simulate_prepared_transaction(
+pub async fn simulate_prepared_transaction(
     prepared_transaction: &mut PreparedTransaction,
     rpc_client: &RpcClient,
     simulate_config: RpcSimulateTransactionConfig,
@@ -459,7 +470,7 @@ pub fn simulate_prepared_transaction(
             commitment: blockhash_commitment,
         },
     );
-    let latest_blockhash = rpc_client_blockhash.get_latest_blockhash()?;
+    let latest_blockhash = rpc_client_blockhash.get_latest_blockhash().await?;
     let tx = if simulate_config.sig_verify {
         prepared_transaction.sign(latest_blockhash).map_err(|e| {
             error!(
@@ -471,7 +482,9 @@ pub fn simulate_prepared_transaction(
         prepared_transaction.partial_sign(latest_blockhash)
     };
 
-    rpc_client.simulate_transaction_with_config(tx, simulate_config)
+    rpc_client
+        .simulate_transaction_with_config(tx, simulate_config)
+        .await
 }
 
 fn warn_text_simulate_print(simulate: bool, print: bool) {
