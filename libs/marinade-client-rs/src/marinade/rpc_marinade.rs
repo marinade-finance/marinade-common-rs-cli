@@ -5,7 +5,7 @@ use anchor_client::{Client, Program};
 use marinade_finance::state::stake_system::StakeRecord;
 use marinade_finance::state::validator_system::ValidatorRecord;
 use marinade_finance::state::State;
-use solana_client::rpc_client::RpcClient;
+use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
 use std::ops::Deref;
@@ -26,9 +26,8 @@ impl<C: Deref<Target = impl Signer> + Clone> RpcMarinade<C> {
     ) -> anyhow::Result<Self> {
         let program = anchor_client.program(program_pubkey)?;
         let state: State = program.account(instance_pubkey).await?;
-        let async_client = program.rpc();
         Ok(Self {
-            client: RpcClient::new_with_commitment(async_client.url(), async_client.commitment()),
+            client: program.rpc(),
             program,
             program_pubkey,
             instance_pubkey,
@@ -41,19 +40,19 @@ impl<C: Deref<Target = impl Signer> + Clone> RpcMarinade<C> {
         Ok(())
     }
 
-    pub fn validator_list(&self) -> anyhow::Result<(Vec<ValidatorRecord>, u32)> {
-        validator_list(&self.client, &self.state)
+    pub async fn validator_list(&self) -> anyhow::Result<(Vec<ValidatorRecord>, u32)> {
+        validator_list(&self.client, &self.state).await
     }
 
-    pub fn stake_list(&self) -> anyhow::Result<(Vec<StakeRecord>, u32)> {
-        stake_list(&self.client, &self.state)
+    pub async fn stake_list(&self) -> anyhow::Result<(Vec<StakeRecord>, u32)> {
+        stake_list(&self.client, &self.state).await
     }
 
-    pub fn stakes_info(&self) -> anyhow::Result<(Vec<StakeInfo>, u32)> {
-        stakes_info(&self.client, &self.state)
+    pub async fn stakes_info(&self) -> anyhow::Result<(Vec<StakeInfo>, u32)> {
+        stakes_info(&self.client, &self.state).await
     }
 
-    pub fn stakes_info_reversed(&self) -> anyhow::Result<(Vec<StakeInfo>, u32)> {
-        stakes_info_reversed(&self.client, &self.state)
+    pub async fn stakes_info_reversed(&self) -> anyhow::Result<(Vec<StakeInfo>, u32)> {
+        stakes_info_reversed(&self.client, &self.state).await
     }
 }

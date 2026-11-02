@@ -22,3 +22,6 @@ dynsigner = { path = "../dynsigner" }
 anchor-lang = "=0.31.1"
 anchor-client = { version = "=0.31.1", features = ["async"] }
 borsh = "0.10.4"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt"] }
