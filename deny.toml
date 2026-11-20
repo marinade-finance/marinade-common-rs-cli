@@ -36,6 +36,11 @@ ignore = [
   "RUSTSEC-2026-0098",
   "RUSTSEC-2026-0099",
   "RUSTSEC-2026-0104",
+  "RUSTSEC-2026-0382",
+  # rustls 0.21 and webpki-roots 0.24 from the same stack. RETIRE when on solana-pubsub-client 3.x.
+  "RUSTSEC-2026-0346",
+  "RUSTSEC-2026-0349",
+  "RUSTSEC-2026-0381",
   # chrono, and humantime that wraps it: unmaintained, patched = []. RETIRE when agave drops chrono.
   "RUSTSEC-2026-0543",
   "RUSTSEC-2026-0542",
