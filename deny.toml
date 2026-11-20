@@ -36,6 +36,9 @@ ignore = [
   "RUSTSEC-2026-0098",
   "RUSTSEC-2026-0099",
   "RUSTSEC-2026-0104",
+  # chrono, and humantime that wraps it: unmaintained, patched = []. RETIRE when agave drops chrono.
+  "RUSTSEC-2026-0543",
+  "RUSTSEC-2026-0542",
 ]
 
 # Permissive-only allow list. Anything copyleft (GPL/LGPL/AGPL/EUPL/EPL),
