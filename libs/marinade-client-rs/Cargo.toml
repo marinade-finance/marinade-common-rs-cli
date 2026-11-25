@@ -17,7 +17,7 @@ solana-client = "2.3"
 solana-sdk-ids = "2.2"
 solana-stake-interface = { version = "1.2", features = ["serde"] }
 base64 = "0.22"
-marinade-finance = { path = "/home/chalda/marinade/liquid-staking-program/programs/marinade-finance" }
+marinade-finance = { git = "https://github.com/marinade-finance/liquid-staking-program.git", branch = "anchor-0.32-v3" }
 dynsigner = { path = "../dynsigner" }
 anchor-lang = "=0.32.1"
 anchor-client = { version = "=0.32.1", features = ["async"] }
