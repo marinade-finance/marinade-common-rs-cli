@@ -332,9 +332,10 @@ async fn execute_prepared_transaction_retry_blockhash_internal(
 ) -> Result<Signature, anchor_client::ClientError> {
     let mut retry_count: u16 = 0;
     let blockhash_failure_retries = blockhash_failure_retries.unwrap_or(0);
-    let mut last_error = anchor_client::ClientError::SolanaClientError(SolanaClientError::from(
-        RpcError::RpcRequestError("send_transaction: unknown retry failure".to_string()),
-    ));
+    let mut last_error =
+        anchor_client::ClientError::SolanaClientError(Box::new(SolanaClientError::from(
+            RpcError::RpcRequestError("send_transaction: unknown retry failure".to_string()),
+        )));
     while retry_count <= blockhash_failure_retries {
         let send_result = execute_prepared_transaction_internal(
             prepared_transaction,
@@ -347,7 +348,7 @@ async fn execute_prepared_transaction_retry_blockhash_internal(
                 return Ok(signature);
             }
             Err(err) => {
-                last_error = anchor_client::ClientError::SolanaClientError(err);
+                last_error = anchor_client::ClientError::SolanaClientError(Box::new(err));
                 if let anchor_client::ClientError::SolanaClientError(ce) = &last_error {
                     let to_check_err: Option<&TransactionError> = match ce.kind() {
                         ClientErrorKind::RpcError(RpcError::RpcResponseError {
@@ -432,7 +433,7 @@ pub async fn execute_prepared_transaction(
     ).await.map_err(|e|{
         error!("execute_prepared_transaction: error send_and_confirm transaction '{:?}', signers: '{:?}': {:?}",
                 prepared_transaction.transaction, prepared_transaction.signers.iter().map(|s| s.pubkey()), e);
-        e.into()
+        Box::new(e).into()
     })
 }
 
