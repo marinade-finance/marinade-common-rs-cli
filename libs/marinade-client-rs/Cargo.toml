@@ -10,17 +10,17 @@ once_cell = "1.8.0"
 thiserror = "1.0.30"
 anyhow = "1.0.71"
 bincode = "1.3.3"
-spl-token = { version = "7.0", features = ["no-entrypoint"] }
-spl-associated-token-account = { version = "6.0", features = ["no-entrypoint"] }
+spl-token = { version = "8.0", features = ["no-entrypoint"] }
+spl-associated-token-account = { version = "7.0", features = ["no-entrypoint"] }
 log = "0.4.18"
 solana-client = "2.3"
 solana-sdk-ids = "2.2"
 solana-stake-interface = { version = "1.2", features = ["serde"] }
 base64 = "0.22"
-marinade-finance = { git = "https://github.com/marinade-finance/liquid-staking-program.git", branch = "gen-8777/anchor-0.31" }
+marinade-finance = { git = "https://github.com/marinade-finance/liquid-staking-program.git", branch = "anchor-0.32-v3" }
 dynsigner = { path = "../dynsigner" }
-anchor-lang = "=0.31.1"
-anchor-client = { version = "=0.31.1", features = ["async"] }
+anchor-lang = "=0.32.1"
+anchor-client = { version = "=0.32.1", features = ["async"] }
 borsh = "0.10.4"
 
 [dev-dependencies]
